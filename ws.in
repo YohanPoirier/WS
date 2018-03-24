@@ -1,0 +1,74 @@
+# PROJECT ----------------------------------------------------------------------
+    Version                                     :   file_version    :   2.0
+    Project name                                :   filename        :   test01.dat
+# INCIDENT WAVE ----------------------------------------------------------------
+    Wave definition                             :   HType           :   1
+    Depth (m)                                   :   prof            :   10 
+# Airy (if Htype = 1)
+    Number of components (max 200)              :   NHoule          :   1
+    Direction (rad)                             :   directionAiry   :   [0.]
+    Pulsation (rad/s)                           :   omega           :   [6.4]
+    Amplitude (m)                               :   Aphi            :   [0.01]
+    Phase (rad)                               	:   Phi             :   [0.]
+# Rienecker & Fenton (if Htype = 2)
+    File                                        :   filecoeff       :   waverf.cof  
+    Direction (rad)                             :   directionRF     :   0.
+    Phase (rad)                               	:   PhiRF           :   0.
+# MESH DEFINITION -----------------------------------------------------------------
+    Closed domain                               :   is_closed       :   T
+    Symmetry (in y direction)                   :   symmetry        :   F
+    Bottom symmetry                             :   bottom_sym      :   T    
+    Absorbing beach length (m)                  :   LAbs            :   1.5
+    Mesh generation algorithm                   :   Mesh_type       :   2   
+# Radial mesh (Mesh_type = 1)    
+    Shift (0/1)                                 :   decalage        :   1 
+    Number of discrete point along theta        :   Nth             :   1
+    Number of discrete point along radius       :   Nr              :   1
+# Front method (Mesh_type = 2)    
+    Size discretization                         :   [dx1 dx3]       :   [0.4 0.03]
+    Size of boundary layer around floaters      :   d_bl    	    :   0.
+    Background grid resolution                  :   [hrefx hrefy]   :   [0.6 0.6]  
+    Background grid size on FS                  :  [hrefxFS hrefyFS]:   [0.05 0.05]
+    Intersection size resolution                :   dsi             :   0.002
+    Coef in front of delta_ref in (4.11) of CC	:   NormOverDref    :   0.6
+    Laplacian Sparse (0), full (1) or linear (2):   idref	    :   0
+    Remeshing the free surface (T) or not (F)   :   RemeshFS        :   T
+    Forced remeshing (T) or not (F)		:   ForcedRemeshFS  :   F
+# NUMERICAL PARAMETERS --------------------------------------------------------------
+    Partial computation of influence coeff.     :   CCI             :   T
+    Use BSpline interpolation for curvature     :   BSpline         :   T
+    Spline order                                :   SPlineOrder     :   3
+    Dot product normals intersections		:   DPNormals	    :   0.5
+    Force linear approach on the Free-Surface   :   LineaireFS      :   F
+    Force linear approach on the Body           :   LineaireBody    :   F
+    Frozen Runge Kutta                          :   RK_figee        :   F
+    Latching Method				:   is_latching	    :	F
+    Starting time                               :   t0              :   0.
+    Time step                                   :   dt              :   0.01
+    Number of time step                         :   nt              :   2000    
+    Time instant for initial ramp               :   [T1,T2]         :   [0. 1.]
+    Starting time for output                    :   Tout            :   0.
+    Time step for output                        :   nout            :   1
+    Linear solver (0:LU, 1:GMRES)               :   Solv            :   0
+    Tolerance GMRES                             :   tolGMRES        :   0.000000001
+    Smoothing frequency                         :   nliss           :   5
+    Hydrostatique computed or not		:   hydrostatique   :   T
+    Number of threads				:   NThreads	    :   1
+# WAVE PROBES -----------------------------------------------------------------------
+    Number of wave probes			:   nWaveProbes	    :   1
+    Position of WP 3				:   Position 3	    :   [0.4 0.0 0.]
+# PHYSICAL CONSTANTS ----------------------------------------------------------------
+    Water density				:   rho   	    :   1025
+    Acceleration of gravity			:   g		    :   9.80665
+# OUTPUT PARAMETERS  ---------------------------------------------------------------
+    Screen output                               :   iprint          :   0
+    Debug mode                                  :   idebug          :   0
+    3D field output                             :   iwhoule         :   F
+    Energy output                               :   iwenergy        :   F
+    Body displacement output                    :   iwmbody         :   T
+    Monitoring mesh deformation                 :   iwmonitor       :   F
+    Output mesh quality                         :   icheck          :   F
+    Mesh advance front evolution		:   iwevol	    :   F
+    Mesh advance front remesh evolution		:   iwevolRemesh    :   F
+    Cartesian grid				:   iwCartGrid      :   F
+# -----------------------------------------------------------------------------------
