@@ -19,6 +19,7 @@ bool_cuda = True
 precision = 1
 N_sym = 1
 N_n_max = 5000
+N_seuil = 8 #Critere pour utiliser l'expression asymptotique
 
 # Reading the input files
 api_wsc.api_execution('ws.in','test.geom')
@@ -118,6 +119,10 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
                 input()
                 
             L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_double, L_double_N = api_wsc.import_mesh(N_f, N_n)
+            
+            L_Crmax = np.zeros_like(L_Rmax)
+            for i in range(L_Crmax.shape[0]):
+                L_Crmax[i] = (N_seuil*L_Rmax[i])**2
 
 
             t1 = time.time()
@@ -126,7 +131,7 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
             CI.init_matrice_CI(init_CI_kernel, A_CD_d, A_CS_d, N_n, N_n_max)
 
             # Calcul des coefficients d'influence
-            CI.calcul_matrice_CI(A_CD_d, A_CS_d, L_P, L_T, L_N, L_G, L_Rmax, L_ds, N_sym, Ldom[2], CI_kernel, precision, N_n_max)
+            CI.calcul_matrice_CI(A_CD_d, A_CS_d, L_P, L_T, L_N, L_G, L_Crmax, L_ds, N_sym, Ldom[2], CI_kernel, precision, N_n_max)
 
 
             # Calcu de l'angle solide
@@ -165,7 +170,7 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
         # Boundary element solver
         
 
-        api_wsc.api_solbvp(bool_cuda)
+        #api_wsc.api_solbvp(bool_cuda)
         
         t4 = time.time()
         
