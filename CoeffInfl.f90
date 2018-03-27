@@ -101,21 +101,28 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
                     do js = 1,-ns,-2    
                         
                         M(3) = js*M(3)-(1._rp-js)*Ldom(3)
-                        MG = M-Facette%Gfacette
+                        MG = M-Facette%Gfacette                   
                         
                         ! Distance criteria to use or not an symptotic development.
                         Cr = dot_product(MG,MG) ! Cr = GM^2
                         
-                        if(Cr.lt.Crmax)then ! Exact computation.
-                        
+                        !if(Cr.lt.Crmax)then ! Exact computation.
+                        if (.true.) then
                             ! Exact computation.
-                            call Iints(M, Facette, Isigma, Imu) ! Line integrations.
+                            call Iints(M, Facette, Isigma, Imu,j,k) ! Line integrations.
                             call Sints(M, Facette, Ssigma, Smu) ! Surface integrations.
                         
                             ! Prise en compte du paramétrage de la facette.
                             Ar = [inv3,inv3,inv3] + matmul(Facette%dsT,MG)
                             Css = Css + Ssigma*Ar + matmul(Facette%dsT,Isigma)
                             Cdd = Cdd + Smu*Ar + matmul(Facette%dsT,Imu)
+                            
+                            
+                            if (j < 5 .and. k ==1) then
+                                print*, j, Imu
+                                print*, j, Isigma
+                                print *
+                            end if
                         
                         else ! Asymptotic development.
                         
@@ -275,7 +282,7 @@ subroutine CoeffInfl_v2(Mesh, CD, CS, Nnodes, bornes)
                         if(Cr.lt.Crmax)then ! Exact computation.
                             
                             ! Exact computation.
-                            call Iints(M, Facette , Isigma, Imu) ! Line integrations.
+                            call Iints(M, Facette , Isigma, Imu, k,j) ! Line integrations.
                             call Sints(M, Facette , Ssigma, Smu) ! Surface integrations.
                             
                             ! Prise en compte du paramétrage de la facette.
@@ -458,6 +465,7 @@ subroutine CoeffInfl_Line(Mesh, CS, CD, size_CDCS, ind, j0, bornes)
         do js1 = 1,-ns1,-2
             
             M(2) = js1*M(2)
+
             
             ! If bottom symmetry, computation for M(x,y,z) and M(x,y,-z-2h).
             do js = 1,-ns,-2
@@ -589,11 +597,14 @@ subroutine CoeffInfl_Line_Full(Mesh, Nnodes, CS, CD, LTab, Border,j0,bornes)
                 Facette = Mesh%Tfacette(k)
                 Crmax = 64._rp*Facette%Rmax**2 ! Crmax = (8*Rmax)^2, the value of 8 is justified in 3.4 of LL.
                 Css = 0._rp ; Cdd = 0._rp
+                
         
                 ! If (xOz) symmetry, computation for M(x,y,z) and M(x,-y,z).
                 do js1 = 1,-ns1,-2
             
                     M(2) = js1*M(2)
+                    
+                
             
                     ! If bottom symmetry, computation for M(x,y,z) and M(x,y,-z-2h).
                     do js = 1,-ns,-2
@@ -1027,7 +1038,7 @@ subroutine DeplNoeud(Mesh, LTab, borne,Nnodes)
 
 end subroutine DeplNoeud
 
-subroutine Iints(M, Facette, Isigma, Imu)
+subroutine Iints(M, Facette, Isigma, Imu,i_n,i_f)
     !!!!! Problème :
     !   Calculer Isigma et Imu d'après les données géométriques d'une noeud et d'une facette
     !   Solution analytique développée dans le rapport bibliographique
@@ -1045,6 +1056,8 @@ subroutine Iints(M, Facette, Isigma, Imu)
     real(rp), dimension(3)              :: A, B                                                     ! End points of one segment.
     real(rp), dimension(3,4)            :: Pt                                                       ! Positions of the vertexes of the panel.
     real(rp), dimension(3,3)            :: Jsigma, Jmu                                              ! Integral Isigma and Imu.
+    
+    integer :: i_n, i_f
     
     ! This subroutine computes Isigma and Imu.
     
@@ -1082,6 +1095,11 @@ subroutine Iints(M, Facette, Isigma, Imu)
                 call Computation_vect_product(A-M,B-A,vect_product)
                 dsT = vect_product*invAB
                 Jmu(:,j) = dsT*(d1-d2)
+                
+                if (i_n == 1 .and. i_f == 1) then
+                    print *,  dsT*(d1-d2)
+                end if
+                
             end if
         end if
     end do

@@ -87,10 +87,17 @@ Program Main
     call CoeffInfl(Mesh, CD, CS,Nnodes)
     
     
-    
+    print *, "CS"
     do k = 1, 5
         do j = 1, 5
-            print*, k,j, CD(k,j), CD2(i,j)
+            print*, k,j,CS(k,j) -CS2(k,j)
+        end do
+    end do
+    
+    print*, "CD"
+    do k = 1, 5
+        do j = 1, 5
+            print*, k,j,CD(k,j), CD2(k,j)
         end do
     end do
     

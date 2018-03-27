@@ -50,7 +50,7 @@
 		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
 		<File RelativePath="..\AdvanceFront.f90"/>
 		<File RelativePath="..\Airy.f90"/>
-		<File RelativePath="..\CoeffInfl.f90"/>
+		<File RelativePath="..\CoeffInfl - allege.f90"/>
 		<File RelativePath="..\CoeffInfl_cudaLIKE.f90"/>
 		<File RelativePath="..\Constantes.f90"/>
 		<File RelativePath="..\Exec.f90"/>
