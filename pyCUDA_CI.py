@@ -199,8 +199,8 @@ def init_CI(precision):
 
         for(int j=0; j<3; ++j)
         {
-            CD[j] = Cdd;
-            CS[j] = Css;
+            CD[j] = CD[j] + Cdd;
+            CS[j] = CS[j] + Css;
         }    
     }
         
@@ -372,8 +372,8 @@ def init_CI(precision):
             #pragma unroll
             for(int j = 0; j<3 ; ++j)
             {
-                CD[j] = (1./3. + temp1[j])*Smu - temp2[j];
-                CS[j] = (1./3. + temp1[j])*Ssigma - temp3[j];
+                CD[j] = CD[j] + (1./3. + temp1[j])*Smu - temp2[j];
+                CS[j] = CS[j] + (1./3. + temp1[j])*Ssigma - temp3[j];
             }
         }
     }
@@ -381,7 +381,7 @@ def init_CI(precision):
     
     __global__ void mat_CI_kernel(RP *L_X, int *L_T, RP *L_n, RP *L_GS, RP *L_G, RP *L_R_max, RP *A_CD, RP *A_CS, int N_n, int N_n_max, int i_f_i, int i_f_f, int N_sym, RP prof)
     {
-        RP CS[3], CD[3];
+        
         RP L_P[9], M[3], GS[9], n[3], G[3];
         int i_n;
         int i;
@@ -420,21 +420,25 @@ def init_CI(precision):
                     n[k] = L_n[3*i_f + k];
                     G[k] = L_G[3*i_f + k];
                 }
+                
+                
+                RP CS[3] = {0};
+                RP CD[3] = {0};
                     
                 for (int i_sym=0; i_sym<=N_sym; ++i_sym)
                 {
                     M[2] = (1-2*i_sym)*L_X[i_n*3 + 2] - 2.*i_sym*prof;
 
                     coeff_inf_d(L_P, n, G, GS, L_R_max[i_f], M, CS, CD);
-                
-                    for (int k=0; k<3; ++k)
-                    {
-                        i = L_T[3*i_f + k];
-                        
-                        A_CS[i_n*N_n_max + i] += CS[k];
-                        A_CD[i_n*N_n_max + i] += CD[k];
-                    } 
                 }
+                
+                for (int k=0; k<3; ++k)
+                {
+                    i = L_T[3*i_f + k];
+                    
+                    A_CS[i_n*N_n_max + i] += CS[k];
+                    A_CD[i_n*N_n_max + i] += CD[k];
+                } 
             } 
         }
     }
