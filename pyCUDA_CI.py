@@ -172,11 +172,15 @@ def init_CI(precision):
     
 
             
-    __device__ void S_sigma_mu_asympt_d(RP *L_P, RP *M, RP* G, RP *n, RP *mu, RP *sigma)
+    __device__ void coeff_asympt_d(RP *L_P, RP *M, RP* G, RP *n, RP *CD, RP *CS)
     {
         RP GM[3], M1M2[3], M1M3[3];
         RP temp[3];
         RP A;
+        RP Css, Cdd;
+        RP inv3;
+        
+        inv3 = (RP)1./(RP)3.;
     
         #pragma unroll
         for(int j=0; j<3; ++j)
@@ -189,9 +193,15 @@ def init_CI(precision):
         rot_d(temp,M1M2,M1M3);
         A = norm_d(temp)/2.;
         
-        sigma[0] = A/norm_d(GM);
-        mu[0] = dot_product(GM,n)*A/pow(norm_d(GM),3);
+        Css = inv3*A/norm_d(GM);
+        Cdd = inv3*dot_product(GM,n)*A/pow(norm_d(GM),3);
         /* Erreur dans la these de Lucas */
+
+        for(int j=0; j<3; ++j)
+        {
+            CD[j] = Cdd;
+            CS[j] = Css;
+        }    
     }
         
     
@@ -339,34 +349,32 @@ def init_CI(precision):
         RP temp1[3] , temp2[3], temp3[3];
         int N_seuil = 8;
         
-        I_sigma_mu_d(L_P, M, n, Imu, Isigma);
+        
         
         if (test_asymp_d (G,M,R_max,N_seuil))
         {
-            S_sigma_mu_asympt_d(L_P, M, G, n, &Smu, &Ssigma);
+            coeff_asympt_d(L_P, M, G, n, CD, CS);
         }
         else
         {
+            #pragma unroll
+            for(int j = 0; j<3 ; ++j)
+            {
+                GM[j] = M[j] - G[j];
+            }
+            I_sigma_mu_d(L_P, M, n, Imu, Isigma);
             S_sigma_mu_d(L_P, M, G, n, &Smu, &Ssigma);
-        }
-
-    
-        #pragma unroll
-        for(int j = 0; j<3 ; ++j)
-        {
-            GM[j] = M[j] - G[j];
-        } 
-        
-        
-        matmul(GM, GS, temp1);
-        matmul(Imu, GS, temp2);
-        matmul(Isigma, GS, temp3);
-        
-        #pragma unroll
-        for(int j = 0; j<3 ; ++j)
-        {
-            CD[j] = (1./3. + temp1[j])*Smu - temp2[j];
-            CS[j] = (1./3. + temp1[j])*Ssigma - temp3[j];
+            
+            matmul(GM, GS, temp1);
+            matmul(Imu, GS, temp2);
+            matmul(Isigma, GS, temp3);
+            
+            #pragma unroll
+            for(int j = 0; j<3 ; ++j)
+            {
+                CD[j] = (1./3. + temp1[j])*Smu - temp2[j];
+                CS[j] = (1./3. + temp1[j])*Ssigma - temp3[j];
+            }
         }
     }
     

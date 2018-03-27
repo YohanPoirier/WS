@@ -33,16 +33,6 @@ api_wsc.api_mesh()
 # Calling all the subroutines which are used before the beginning of the temporal loop.
 api_wsc.pre_temporal_loop()
 
-# A SUPPRIMER
-N_f, N_n, N_body = api_wsc.import_mesh_dim()
-CD2, CS2 = api_wsc.import_ci(N_n)
-
-
-for i in range(5):
-    for j in range(5):
-        print(i,j,CD2[i,j])
-        
-input()
 
 # Initialization of cuda module
 init_CI_kernel, CI_kernel, angle_solide_kernel = CI.init_CI(precision)
@@ -153,21 +143,19 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
             
             
             
-            #CD2, CS2 = api_wsc.import_ci(N_n)
+            CD2, CS2 = api_wsc.import_ci(N_n)
             
             
-            # for i in range(5):
-            #     for j in range(5):
-            #         print(i,j,CD[i,j], CD2[i,j])
-            #         
-            # for i in range(5):
-            #     for j in range(5):
-            #         print(i,j,CS[i,j], CS2[i,j])
-            #         
-            #         
+            for i in range(5):
+                for j in range(5):
+                    print(i,j,CD[i,j], CD2[i,j])
                     
-            #input()
-            
+            for i in range(5):
+                for j in range(5):
+                    print(i,j,CS[i,j], CS2[i,j])
+                    
+                    
+ 
             
             
 
@@ -184,6 +172,8 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
         print("Temps CI (GPU) : {}".format(t2-t1))
         print("Temps get : {}".format( t3-t2))
         print("Temps résolution (CPU) : {}".format(t4-t3))
+        
+        input()
 
         
         # Computation of the gradient on the floater (surface and normal gradient)
