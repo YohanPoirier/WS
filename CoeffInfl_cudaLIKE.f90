@@ -304,12 +304,7 @@ contains
         
         inv3 = 1._RP/3._RP
         
-     
-        
-        
-        
-        
-                
+
         if (asympt_d(G, M, R_max, N_seuil)) then
             call coeff_asympt_d(L_P, M, G, n, CD, CS)
         else
@@ -329,19 +324,7 @@ contains
                 CD(j) = (inv3 + temp1(j))*Smu - temp2(j)
                 CS(j) = (inv3 + temp1(j))*Ssigma - temp3(j)
             end do
-        end if
-
-        
-
-        
-        if (i_n == 2 .and. i_f < 4) then
-            print *, i_n, i_f
-            print *, "Asympt", asympt_d(G, M, R_max, N_seuil)
-            print *, "Cdd", CD
-
-        end if
-        
-      
+        end if       
 
     end subroutine
                 

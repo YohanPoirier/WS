@@ -175,26 +175,43 @@ module API_WSC
     end subroutine
     
     
-    subroutine import_indices(ind_SL, ind_body, N_body)
-        integer, dimension(4) :: ind_SL
-        integer, dimension(N_body,4) :: ind_body
-        integer :: N_body
-        integer :: i
-        
-        !f2py intent(in) :: N_body
-        !f2py intent(out) :: ind_SL, ind_body
+    subroutine import_indices(ind)
+
+        integer, dimension(6) :: ind
+
+        !f2py intent(out) :: ind
     
-        ind_SL = Mesh%FS%IndFS
-        
-        do i = 1, N_body
-            ind_body(i,:) = Mesh%Body(i)%IndBody - 1
-        end do
+                
+        if(cuve_ferme)then
+            if(Mesh%Body(Mesh%NBody)%Active)then
+                ind = [1,Mesh%Nsys, Mesh%FS%IndFS(1),Mesh%FS%IndFS(3),Mesh%Body(1)%IndBody(1),Mesh%Body(Mesh%NBody)%IndBody(3)] ! Body(Mesh%NBody) is not above the free surface.
+            else
+                ind = [1,Mesh%Nsys, Mesh%FS%IndFS(1),Mesh%FS%IndFS(3),Mesh%Body(1)%IndBody(1),Mesh%Body(Mesh%NBody-1)%IndBody(3)] ! Body(Mesh%NBody) is above the free surface.
+            end if
+        else
+            ind = [1,Mesh%Nsys, Mesh%FS%IndFS(1),Mesh%FS%IndFS(3),Mesh%Body(1)%IndBody(1),Mesh%Body(Mesh%NBody)%IndBody(3)]
+        end if
+    
     
     end subroutine 
     
     
-
+    subroutine import_ecoulement(N, ind, X_connu, X_inconnu_0)
+        
+        integer :: N
+        integer, dimension(6) :: ind
+        real(rp), dimension(N) :: X_connu, X_inconnu_0
+        
+        !f2py intent(in) :: N, ind
+        !f2py intent(out) :: X_connu, X_inconnu_0
+        
+        X_connu(ind(3):ind(4)) = Ecoulement%Phi(ind(3):ind(4))%perturbation
+        X_connu(ind(5):ind(6)) = Ecoulement%DPhiDn(ind(5):ind(6))%perturbation
     
+        X_inconnu_0(ind(3):ind(4)) = Ecoulement%DPhiDn(ind(3):ind(4))%perturbation
+        X_inconnu_0(ind(5):ind(6)) = Ecoulement%Phi(ind(5):ind(6))%perturbation
+        
+    end subroutine
     
     
     subroutine import_Ldom(Ldom_py)
@@ -216,7 +233,7 @@ module API_WSC
     end subroutine
     
     
-    subroutine import_Mesh(Nf, Nn, L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_double, L_double_N)
+    subroutine import_Mesh(Nf, Nn, L_P, L_ds, L_T, L_G, L_N, L_Rmax)
         
         integer :: Nf, Nn
         real(rp), dimension(Nf) :: L_Rmax
@@ -224,18 +241,15 @@ module API_WSC
         real(rp), dimension(Nf,3) :: L_G, L_N
         real(rp), dimension(Nf,3,3) :: L_ds
         real(rp), dimension(Nn,3) :: L_P
-        integer, dimension(Nn,3) :: L_double
-        integer, dimension(Nn) :: L_double_N
-        
+
+
         integer :: i
         
         !f2py intent(in) :: Nf, Nn
-        !f2py intent(out) :: L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_double, L_double_N
+        !f2py intent(out) :: L_P, L_ds, L_T, L_G, L_N, L_Rmax
         
         do i = 1, Nn
             L_P(i,:) = Mesh%Tnoeud(i)%Pnoeud
-            L_double(i,:) = Mesh%Tnoeud(i)%double
-            L_double_N(i) = Mesh%Tnoeud(i)%Ndouble 
         end do
         
         do i = 1, Nf
@@ -286,7 +300,19 @@ module API_WSC
     end subroutine
     
     
-    
+    subroutine import_syst(Nn, A_py, B_py)
+        
+        integer :: Nn
+        real(rp), dimension(Nn,Nn) :: A_py
+        real(rp), dimension(Nn) :: B_py
+          
+        !f2py intent(in) :: Nn
+        !f2py intent(out) :: A_py, B_py
+        
+        A_py = A
+        B_py = B
+                       
+    end subroutine
     
     subroutine import_CI(Nn, CD_py, CS_py)
         

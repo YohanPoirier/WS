@@ -71,9 +71,7 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
     else
         ns1 = 0
     endif
- 
-    print *, "Bornes : ", borne
-    print *, (borne(1,2) - borne(1,1))*(borne(2,2) - borne(2,1)), Mesh%Nnoeud*Mesh%Nfacette
+
     
     !$OMP PARALLEL DO NUM_THREADS(NThreads) SHARED(Mesh,borne,CD,CS,ns,ns1,Ldom) DEFAULT(PRIVATE) SCHEDULE(DYNAMIC,(borne(1,2)-borne(1,1)+1)/Nthreads)
     do j = borne(1,1),borne(1,2) ! 1st node, last node.
@@ -106,10 +104,10 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
                         ! Distance criteria to use or not an symptotic development.
                         Cr = dot_product(MG,MG) ! Cr = GM^2
                         
-                        !if(Cr.lt.Crmax)then ! Exact computation.
-                        if (.true.) then
+                        if(Cr.lt.Crmax)then ! Exact computation.
+
                             ! Exact computation.
-                            call Iints(M, Facette, Isigma, Imu,j,k) ! Line integrations.
+                            call Iints(M, Facette, Isigma, Imu) ! Line integrations.
                             call Sints(M, Facette, Ssigma, Smu) ! Surface integrations.
                         
                             ! Prise en compte du paramétrage de la facette.
@@ -117,13 +115,7 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
                             Css = Css + Ssigma*Ar + matmul(Facette%dsT,Isigma)
                             Cdd = Cdd + Smu*Ar + matmul(Facette%dsT,Imu)
                             
-                            
-                            if (j < 5 .and. k ==1) then
-                                print*, j, Imu
-                                print*, j, Isigma
-                                print *
-                            end if
-                        
+
                         else ! Asymptotic development.
                         
                             invRho = 1._RP/norm2(MG) ! invRho = 1/||GM||
@@ -282,7 +274,7 @@ subroutine CoeffInfl_v2(Mesh, CD, CS, Nnodes, bornes)
                         if(Cr.lt.Crmax)then ! Exact computation.
                             
                             ! Exact computation.
-                            call Iints(M, Facette , Isigma, Imu, k,j) ! Line integrations.
+                            call Iints(M, Facette , Isigma, Imu) ! Line integrations.
                             call Sints(M, Facette , Ssigma, Smu) ! Surface integrations.
                             
                             ! Prise en compte du paramétrage de la facette.
@@ -1038,7 +1030,7 @@ subroutine DeplNoeud(Mesh, LTab, borne,Nnodes)
 
 end subroutine DeplNoeud
 
-subroutine Iints(M, Facette, Isigma, Imu,i_n,i_f)
+subroutine Iints(M, Facette, Isigma, Imu)
     !!!!! Problème :
     !   Calculer Isigma et Imu d'après les données géométriques d'une noeud et d'une facette
     !   Solution analytique développée dans le rapport bibliographique
@@ -1096,9 +1088,6 @@ subroutine Iints(M, Facette, Isigma, Imu,i_n,i_f)
                 dsT = vect_product*invAB
                 Jmu(:,j) = dsT*(d1-d2)
                 
-                if (i_n == 1 .and. i_f == 1) then
-                    print *,  dsT*(d1-d2)
-                end if
                 
             end if
         end if

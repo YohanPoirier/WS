@@ -378,24 +378,27 @@ def init_CI(precision):
     }
     
     
-    __global__ void mat_CI_kernel(RP *L_X, int *L_T, RP *L_n, RP *L_GS, RP *L_G, RP *L_Cr_max, RP *A_CD, RP *A_CS, int N_n, int N_n_max, int i_f_i, int i_f_f, int N_sym, RP prof)
+    __global__ void mat_CI_kernel(RP *L_X, int *L_T, RP *L_n, RP *L_GS, RP *L_G, RP *L_Cr_max, RP *A_CD, RP *A_CS, int N_n, int N_n_max, int N_f, int *liste_n, int *liste_f, int N_sym, RP prof)
     {
         
         RP L_P[9], M[3];
-        int i_n;
-        int i;
+        int i_n, i_f;
+        int i_dx, i;
 
-        i_n = blockIdx.x* blockDim.x + threadIdx.x;
+        i_dx = blockIdx.x* blockDim.x + threadIdx.x;
         
-        if (i_n < N_n)
+        if (i_dx < N_n)
         {
+            i_n = liste_n[i_dx];
             for (int k=0; k<2; ++k)
             {
                 M[k] = L_X[i_n*3 + k];
             }
 
-            for (int i_f=i_f_i; i_f<= i_f_f; ++i_f)
+            for (int j_dx = 0; j_dx < N_f; ++j_dx)
             {
+                i_f = liste_f[j_dx];
+                
                 for (int j=0; j<3; ++j)
                 {
                     i = L_T[3*i_f + j];
@@ -427,6 +430,7 @@ def init_CI(precision):
         }
     }
     
+
 
     __global__ void angle_solide_kernel(RP *A_CD, int N_n, int N_n_max)
     {
@@ -495,9 +499,9 @@ def creation_matrices_GPU(N_n_max, precision):
 
     A_CD_d = gpuarray.zeros((N_n_max,N_n_max), RP)
     A_CS_d = gpuarray.zeros((N_n_max,N_n_max), RP)
+    A_d = gpuarray.zeros((N_n_max,N_n_max), RP)
     
-    
-    return A_CD_d, A_CS_d
+    return A_CD_d, A_CS_d, A_d
     
     
 def calcul_angle_solide(A_CD_d, N_n, N_n_max, angle_solide_kernel):
@@ -536,37 +540,32 @@ def calcul_matrice_CI(A_CD_d, A_CS_d, L_X, L_T, L_N, L_G, L_Cr_max, L_ds, N_sym,
     L_G_d = gpuarray.to_gpu(np.array(L_G, dtype = RP).reshape(3*N_f))
     L_Cr_max_d = gpuarray.to_gpu(np.array(L_Cr_max, dtype = RP))
     
-    
-    N_block = 10000
+    liste_n_d = gpuarray.to_gpu(np.arange(N_n, dtype = np.int32))
+    liste_f_d = gpuarray.to_gpu(np.arange(N_f, dtype = np.int32))
+    # N_block = 10000
 
-    N_iter = (N_f-2)//N_block + 1
-    
+   ##   N_iter = (N_f-2)//N_block + 1
+    # 
 
-    for k in range(N_iter):
-        i_f_i = k*N_block
-        i_f_f = min( (k+1)*N_block, N_f-1)
+   ##   for k in range(N_iter):
+    #     i_f_i = k*N_block
+    #     i_f_f = min( (k+1)*N_block, N_f-1)
+    #     
+
+
+    mat_CI_kernel(
+            L_X_d, L_T_d, L_N_d, L_ds_d, L_G_d, L_Cr_max_d,
+            A_CD_d, A_CS_d, 
+            np.int32(N_n), np.int32(N_n_max), np.int32(N_f),
+            liste_n_d, liste_f_d,
+            np.int32(N_sym), RP(prof),
+            block=(BLOCK_SIZE,1,1), 
+            grid=((N_n-1)//BLOCK_SIZE+1,1)
+            )
+
+    drv.Context.synchronize()
+
         
-
-        ta = time.time()
-        
-        mat_CI_kernel(
-                L_X_d, L_T_d, L_N_d, L_ds_d, L_G_d, L_Cr_max_d,
-                A_CD_d, A_CS_d, 
-                np.int32(N_n), np.int32(N_n_max),
-                np.int32(i_f_i), np.int32(i_f_f),
-                np.int32(N_sym), RP(prof),
-                block=(BLOCK_SIZE,1,1), 
-                grid=((N_n-1)//BLOCK_SIZE+1,1)
-                )
-    
-        drv.Context.synchronize()
-        
-        tb = time.time()
-        
-
-
-
-
 
 def init_matrice_CI(init_CI_kernel, A_CD_d, A_CS_d, N_n, N_n_max):
 

@@ -505,6 +505,7 @@ subroutine SystLin(CD, CS, Ecoulement, Mesh, A, B, Sol,Nnodes,Nsys, Option)
         N = reshape([1,Mesh%FS%IndFS(1),Mesh%Body(Int_Body)%IndBody(1),Mesh%Nsys,Mesh%FS%IndFS(3),Mesh%Body(Mesh%NBody)%IndBody(3)],(/3,2/)) 
     end if
     
+
     ! Building A
     A(N(1,1):N(1,2),N(2,1):N(2,2)) = CS(N(1,1):N(1,2),N(2,1):N(2,2)) ! CS(:,FS)
     A(N(1,1):N(1,2),N(3,1):N(3,2)) = -CD(N(1,1):N(1,2),N(3,1):N(3,2)) ! -CD(:,Ext) -CD(:,B0) ... -CD(:,Bn)

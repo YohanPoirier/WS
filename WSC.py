@@ -4,6 +4,7 @@ from WSC_mod import *
 
 
 import pyCUDA_CI as CI
+import pyCUDA_system as py_sys
 import cas_test as ct
 import numpy as np
 import time
@@ -24,8 +25,10 @@ N_seuil = 8 #Critere pour utiliser l'expression asymptotique
 # Reading the input files
 api_wsc.api_execution('ws.in','test.geom')
 
+
 # Creating the geometry
 api_wsc.api_geometry()
+
 
 # Creating the mesh
 api_wsc.api_mesh()
@@ -37,11 +40,12 @@ api_wsc.pre_temporal_loop()
 
 # Initialization of cuda module
 init_CI_kernel, CI_kernel, angle_solide_kernel = CI.init_CI(precision)
+systeme_kernel = py_sys.init_systeme(precision)
+
 
 # Mise en memoire GPU des matrices CI
-A_CD_d, A_CS_d = CI.creation_matrices_GPU(N_n_max, precision)
+A_CD_d, A_CS_d, A_d = CI.creation_matrices_GPU(N_n_max, precision)
         
-
 
 # Temporal loop
 for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
@@ -111,14 +115,15 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
         if bool_cuda :
 
             Ldom = api_wsc.import_ldom()
-
+            ind = api_wsc.import_indices()
             N_f, N_n, N_body = api_wsc.import_mesh_dim()
+            X_connu, X_inconnu_0 = api_wsc.import_ecoulement(N_n, ind)
             
             if N_n > N_n_max :
                 print("Erreur. N : {} , N_max : {}".format(N_n, N_n_max))
                 input()
                 
-            L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_double, L_double_N = api_wsc.import_mesh(N_f, N_n)
+            L_P, L_ds, L_T, L_G, L_N, L_Rmax = api_wsc.import_mesh(N_f, N_n)
             
             L_Crmax = np.zeros_like(L_Rmax)
             for i in range(L_Crmax.shape[0]):
@@ -127,7 +132,6 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
 
             t1 = time.time()
             # Remise a zero de la matrice de coefficient d'influence
-            
             CI.init_matrice_CI(init_CI_kernel, A_CD_d, A_CS_d, N_n, N_n_max)
 
             # Calcul des coefficients d'influence
@@ -138,30 +142,37 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
             CI.calcul_angle_solide(A_CD_d, N_n, N_n_max, angle_solide_kernel)
             
 
+            #B = construction_systeme(A_d, A_CD_d, A_CS_d, Xconnu, L_type, systeme_kernel)
+            
+            
             # Export des CI vers fortran
 
 
             t2 = time.time()
+
+            
+            print("Temps CI (GPU) : {}".format(t2-t1))
+            
+           
+            
             CD = A_CD_d.get()
             CS = A_CS_d.get()
             
             
-            
-            
-            CD2, CS2 = api_wsc.import_ci(N_n)
-            
-            
-            for i in range(5):
-                for j in range(5):
-                    print(i,j,CD[i,j], CD2[i,j])
-                    
-            for i in range(5):
-                for j in range(5):
-                    print(i,j,CS[i,j], CS2[i,j])
-                    
-                    
+            # CD2, CS2 = api_wsc.import_ci(N_n)
+            # 
+            # 
+            # for i in range(5):
+            #     for j in range(5):
+            #         print(i,j,CD[i,j], CD2[i,j])
+            #         
+            # for i in range(5):
+            #     for j in range(5):
+            #         print(i,j,CS[i,j], CS2[i,j])
+            #         
+            #         
  
-            
+          #   
             
 
             api_wsc.export_ci(CD[:N_n,:N_n], CS[:N_n,:N_n])
@@ -170,11 +181,10 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
         # Boundary element solver
         
 
-        #api_wsc.api_solbvp(bool_cuda)
+        api_wsc.api_solbvp(bool_cuda)
         
         t4 = time.time()
-        
-        print("Temps CI (GPU) : {}".format(t2-t1))
+
         print("Temps get : {}".format( t3-t2))
         print("Temps résolution (CPU) : {}".format(t4-t3))
         

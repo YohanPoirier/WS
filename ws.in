@@ -53,7 +53,7 @@
     Tolerance GMRES                             :   tolGMRES        :   0.000000001
     Smoothing frequency                         :   nliss           :   5
     Hydrostatique computed or not		:   hydrostatique   :   T
-    Number of threads				:   NThreads	    :   1
+    Number of threads				:   NThreads	    :   8
 # WAVE PROBES -----------------------------------------------------------------------
     Number of wave probes			:   nWaveProbes	    :   1
     Position of WP 3				:   Position 3	    :   [0.4 0.0 0.]

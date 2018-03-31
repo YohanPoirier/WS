@@ -6,6 +6,7 @@ Program Main
     use CoeffInfluence
     use CoeffInfluence_CL
     use Structuresdonnees
+    use sys_lineaire
 
     
     character (len=50)                      :: fileparam,filegeom                           ! Input files
@@ -31,6 +32,7 @@ Program Main
     integer :: Nnodes, i_f_i, i_f_f, N_sym
     integer, allocatable :: L_T(:,:)
 
+    real :: ta,tb,tc
     
 
     integer :: k,j
@@ -77,14 +79,19 @@ Program Main
     i_f_f = Nfacettes
     N_sym = 1
 
+    call CPU_TIME(ta)
     call  mat_CI_kernel(L_X, L_T, L_n, L_GS, L_G, L_R_max, CD2, CS2, Nnodes,Nfacettes, i_f_i, i_f_f, N_sym, Ldom(3))
     call angle_solide_kernel(CD2, Nnodes)
+    call CPU_TIME(tb)
     
     ! CI calculation
     Nnodes = Mesh%Nnoeud
     allocate(CS(Nnodes,Nnodes), CD(Nnodes,Nnodes))
     CD = 0._RP ; CS = 0._RP
     call CoeffInfl(Mesh, CD, CS,Nnodes)
+    call CPU_TIME(tc)
+    
+    print *, "Temps", tb-ta, tc-tb
     
     
     print *, "CS"
