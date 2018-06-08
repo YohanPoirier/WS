@@ -96,10 +96,7 @@ def init_CI(precision):
         return norm_d(h)*log((a+b+sqrt(1+(a+b)*(a+b)))/(-a+b+sqrt(1+(-a+b)*(-a+b))))/norm_d(j);
     }
     
-    
-    
-    
-    __device__ void S_sigma_mu_d(RP *L_P, RP *M, RP *G, RP *n, RP *mu, RP *sigma)
+    __device__ void S_sigma_mu2_d(RP *L_P, RP *M, RP *G, RP *n, RP *mu, RP *sigma)
     {
         RP GM[3], PkPk1[3], PkM[3], Pk1M[3];
         RP Rk, Rk1,dk, Z, Nk1, Nkt, Dk1, Dkt;
@@ -119,7 +116,7 @@ def init_CI(precision):
             {
                 temp[j] = L_P[3*i +j] - M[j];
             }
-            if (norm_d(temp) < 1e-5)
+            if (norm_d(temp) < 1e-7)
             /*Condition a affiner*/
             {
                 t = i;
@@ -154,7 +151,80 @@ def init_CI(precision):
                 Nkt = 2*dot_product(PkM,temp);
                 Dkt = (Rk1+Rk)*(Rk1+Rk) - dk*dk + 2.*abs(Z)*(Rk1+Rk);
             
-                if (abs(Z) > 1e-5)
+                if (abs(Z) > 1e-7)
+                /* Condition a affiner */
+                { 
+                    mu[0] += 2.*(Z/abs(Z))*atan(Nkt/Dkt);
+                }
+    
+                sigma[0] += Nkt*log(Nk1/Dk1)/(2.*dk) - 2.*abs(Z)*atan(Nkt/Dkt);
+                
+            }
+        }
+        /* Cas singulier */
+        else
+        {
+            sigma[0] = S_sigma_sing_d(t, L_P, M);
+        }
+    }
+    
+    
+    __device__ void S_sigma_mu_d(RP *L_P, RP *M, RP *G, RP *n, RP *mu, RP *sigma)
+    {
+        RP GM[3], PkPk1[3], PkM[3], Pk1M[3];
+        RP Rk, Rk1,dk, Z, Nk1, Nkt, Dk1, Dkt;
+        int t;
+        RP temp[3];
+        
+        sigma[0] = 0;
+        mu[0] = 0;
+        
+        
+        /* On regarde si le point etudie est un des noeuds de la facette */
+        
+        t = -1;
+        for (int i=0; i<3; ++i)
+        {
+            for (int j=0; j<3; ++j)
+            {
+                temp[j] = L_P[3*i +j] - M[j];
+            }
+            if (norm_d(temp) < 1e-7)
+            /*Condition a affiner*/
+            {
+                t = i;
+            }
+        }
+    
+        /* Cas regulier */
+        if (t == -1 )
+        {
+            for (int i=0; i<3; ++i)
+            {
+                GM[i] = M[i] - G[i];
+            }
+    
+            Z = dot_product(GM,n);
+        
+            for (int i=0; i<3; ++i)
+            {
+                for (int j=0; j<3; ++j)
+                {
+                    PkM[j] = M[j] - L_P[3*i + j];
+                    Pk1M[j] = M[j] - L_P[3*((i+1)%3) + j];
+                    PkPk1[j] = L_P[3*((i+1)%3) + j]- L_P[3*i + j];
+                }
+    
+                Rk = norm_d(PkM);
+                Rk1 = norm_d(Pk1M);
+                dk = norm_d(PkPk1);
+                Nk1 = Rk1 + Rk + dk;
+                Dk1 = Rk1 + Rk - dk;
+                rot_d(temp,n,PkPk1);
+                Nkt = 2*dot_product(PkM,temp);
+                Dkt = (Rk1+Rk)*(Rk1+Rk) - dk*dk + 2.*abs(Z)*(Rk1+Rk);
+            
+                if (abs(Z) > 1e-7)
                 /* Condition a affiner */
                 { 
                     mu[0] += 2.*(Z/abs(Z))*atan(Nkt/Dkt);
@@ -196,6 +266,7 @@ def init_CI(precision):
         
         Css = inv3*A/norm_d(GM);
         Cdd = inv3*dot_product(GM,n)*A/pow(norm_d(GM),3); /* Erreur dans la these de Lucas */
+        
 
         for(int j=0; j<3; ++j)
         {
@@ -242,7 +313,6 @@ def init_CI(precision):
     }
     
     
-    
     __device__ void I_sigma_mu_d(RP *L_P, RP *M, RP *n, RP *mu, RP *sigma)
     {
     
@@ -250,7 +320,7 @@ def init_CI(precision):
         RP res[3];
         RP K2;
         RP a_m, b_m;
-        RP AB_n, dp_AB_AM;
+        RP AB_n, AM_n, dp_AB_AM;
         RP coeff;
         
         #pragma unroll
@@ -272,43 +342,12 @@ def init_CI(precision):
                 AM[j] = M[j] - A[j];
                 BM[j] = M[j] - B[j];
             }
-            
-        
-            dp_AB_AM = dot_product(AB,AM);
-            
-            AB_n = norm_d(AB);
-            
-            K2 = dot_product(AM,AM) - (dp_AB_AM/AB_n)*(dp_AB_AM/AB_n);
-    
-            if (K2 > 1e-5)
-            {
-            
-                a_m = asinh(-dp_AB_AM /(AB_n*sqrt(K2)));
-                b_m = asinh( (AB_n - dp_AB_AM/AB_n )/sqrt(K2) );
 
-                rot_d(res,AM,AB);
-                
-                coeff = -(b_m-a_m)/AB_n ;
-                #pragma unroll
-                for(int j = 0; j<3 ; ++j)
-                {
-                    mu[j] += res[j]*coeff ;
-                    /* Erreur de signe dans la these de Lucas */
-                }
-                       
-                rot_d(res,n,AB);
-                
-                coeff = K2/(2.*AB_n)*(b_m-a_m+(sinh(2.*b_m)-sinh(2.*a_m))/2.);
-                
-                #pragma unroll
-                for(int j = 0; j<3 ; ++j)
-                {
-                    sigma[j] += coeff*res[j];
-                }
-            }
-            else
-            {
-                if (norm_d(AM) < 1e-5 || norm_d(BM) < 1e-5 )
+            AB_n = norm_d(AB);
+            AM_n = norm_d(AM);
+            
+
+            if (AM_n < 1e-7 || norm_d(BM) < 1e-7 )
                 /* Condition a affiner */
                 { 
                     rot_d(res,n,AB);
@@ -319,27 +358,59 @@ def init_CI(precision):
                         sigma[j] += 0.5*AB_n*res[j];
                     }
                 }
-                else
+            else
+            {
+                dp_AB_AM = dot_product(AB,AM);
+                
+            
+                if (abs(abs(dp_AB_AM) - AB_n*AM_n) < 1e-7)
                 {
                     rot_d(res,n,AB);
                     
-                    coeff = abs(norm_d(AM) - 0.5 * dp_AB_AM/norm_d(AM));
+                    coeff = abs(AM_n - 0.5 * dp_AB_AM/AM_n);
                     
                     #pragma unroll
                     for(int j = 0; j<3 ; ++j)
                     {
                         sigma[j] += coeff*res[j];
                     }
-
+    
                     /* Erreur dans la these de Lucas (signe "-")*/
-        
-                     
+                }
+                else
+                {
+                    K2 = dot_product(AM,AM) - (dp_AB_AM/AB_n)*(dp_AB_AM/AB_n);
+    
+                    a_m = asinh(-dp_AB_AM /(AB_n*sqrt(K2)));
+                    b_m = asinh( (AB_n - dp_AB_AM/AB_n )/sqrt(K2) );
+    
+                    rot_d(res,AM,AB);
+                    
+                    coeff = -(b_m-a_m)/AB_n ;
+    
+                    #pragma unroll
+                    for(int j = 0; j<3 ; ++j)
+                    {
+                        mu[j] += res[j]*coeff ;
+                        /* Erreur de signe dans la these de Lucas */
+                        
+                    }
+                        
+                    rot_d(res,n,AB);
+                    
+                    coeff = K2/(2.*AB_n)*(b_m-a_m+(sinh(2.*b_m)-sinh(2.*a_m))/2.);
+                    
+                    #pragma unroll
+                    for(int j = 0; j<3 ; ++j)
+                    {
+                        sigma[j] += coeff*res[j];
+                    }
                 }
             }
         }
     }
     
-    
+
     __device__ void coeff_inf_d(RP *L_P, RP *n, RP *G, RP *GS, RP Cr_max, RP *M, RP *CS, RP *CD)
     {
 
@@ -358,6 +429,7 @@ def init_CI(precision):
         if (dot_product(GM,GM) > Cr_max)
         {
             coeff_asympt_d(L_P, GM, n, CD, CS);
+            
         }
         else
         {
@@ -373,12 +445,13 @@ def init_CI(precision):
             {
                 CD[j] += (inv3 + temp1[j])*Smu - temp2[j];
                 CS[j] += (inv3 + temp1[j])*Ssigma - temp3[j];
+
             }
         }
     }
     
     
-    __global__ void mat_CI_kernel(RP *L_X, int *L_T, RP *L_n, RP *L_GS, RP *L_G, RP *L_Cr_max, RP *A_CD, RP *A_CS, int N_n, int N_n_max, int N_f, int *liste_n, int *liste_f, int N_sym, RP prof)
+    __global__ void mat_CI_kernel(RP *L_X, int *L_T, RP *L_n, RP *L_GS, RP *L_G, RP *L_Cr_max, RP *A_CD, RP *A_CS, int N_n, int N_n_max, int N_f, int *liste_n, int *liste_f, int N_sym, RP prof, RP * temp)
     {
         
         RP L_P[9], M[3];
@@ -413,16 +486,17 @@ def init_CI(precision):
                 RP CD[3] = {0};
                     
                 for (int i_sym=0; i_sym<=N_sym; ++i_sym)
+
                 {
                     M[2] = (1-2*i_sym)*L_X[i_n*3 + 2] - 2.*i_sym*prof;
-
                     coeff_inf_d(L_P, &L_n[3*i_f], &L_G[3*i_f], &L_GS[9*i_f], L_Cr_max[i_f], M, CS, CD);
                 }
                 
                 for (int k=0; k<3; ++k)
                 {
                     i = L_T[3*i_f + k];
-                    
+              
+                
                     A_CS[i_n*N_n_max+i] += CS[k];
                     A_CD[i_n*N_n_max+i] += CD[k];
                 } 
@@ -521,7 +595,7 @@ def calcul_angle_solide(A_CD_d, N_n, N_n_max, angle_solide_kernel):
 def calcul_matrice_CI(A_CD_d, A_CS_d, L_X, L_T, L_N, L_G, L_Cr_max, L_ds, N_sym, prof, mat_CI_kernel, precision, N_n_max):
 
 
-    BLOCK_SIZE = 64
+    BLOCK_SIZE = 256
     
 
     if precision == 2 :
@@ -553,17 +627,21 @@ def calcul_matrice_CI(A_CD_d, A_CS_d, L_X, L_T, L_N, L_G, L_Cr_max, L_ds, N_sym,
     #     
 
 
+    
     mat_CI_kernel(
             L_X_d, L_T_d, L_N_d, L_ds_d, L_G_d, L_Cr_max_d,
             A_CD_d, A_CS_d, 
             np.int32(N_n), np.int32(N_n_max), np.int32(N_f),
             liste_n_d, liste_f_d,
             np.int32(N_sym), RP(prof),
+
             block=(BLOCK_SIZE,1,1), 
             grid=((N_n-1)//BLOCK_SIZE+1,1)
             )
 
     drv.Context.synchronize()
+    
+    
 
         
 

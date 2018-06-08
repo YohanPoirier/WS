@@ -5,12 +5,14 @@ implicit none
 
 contains
 
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !                                                                                                   !
-!                                   Solveur du Problème aux Limites (Yohan)                                !
+!                                   Solveur du Problème aux Limites    
+!   Yohan : garde A et B en memoire
 !                                                                                                   !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-subroutine solBVP2(Ecoulement, Mesh, CD, CS,Nnodes,time,boolRemesh, t, Option)
+subroutine solBVP3(Ecoulement, Mesh, CD, CS, A, B, Nnodes,time,boolRemesh, t, Option)
     !!!!!Problème :
     !   Résoudre le système des équations intégrales par
     !       o Calcul ou récupération des coefficients d'influence
@@ -36,8 +38,9 @@ subroutine solBVP2(Ecoulement, Mesh, CD, CS,Nnodes,time,boolRemesh, t, Option)
     integer                                 :: j,k, N, jk, j1, j2, j3   ! Parameters.
     integer, dimension(2,2)                 :: borne                    ! Boundaries for the computation of the influence coefficients (nodes and panels).
     real(rp)                                :: CIPartiel                ! Parameter to know if the partial computation of the influence coefficient has to be done or not.
-    real(rp),allocatable, dimension(:,:)    :: A                        ! A matrix of the linear system.
-    real(rp),allocatable, dimension(:)      :: B, Sol                   ! B matrix and the solution of the linear system.
+    real(rp),dimension(Nnodes,Nnodes)       :: A                        ! A matrix of the linear system.
+    real(rp),allocatable, dimension(:)      :: Sol                   ! B matrix and the solution of the linear system.
+    real(rp), dimension(Nnodes)             :: B
     logical, dimension(:),allocatable       :: LTab                     ! Table to know if a node moved enough to compute its influence coefficients again (= false) or not (= true).
     logical, dimension(:),allocatable       :: BPoint                   ! Neighbours (nodes) of the nodes of LTab.
     logical, dimension(:),allocatable       :: BFace                    ! Panels linked to the nodes of LTab and their neighbours (panels).
@@ -45,111 +48,7 @@ subroutine solBVP2(Ecoulement, Mesh, CD, CS,Nnodes,time,boolRemesh, t, Option)
     logical                                 :: bool                     ! Computation of the CI (true) or not (false) when it was already done after the remeshing (only for jk = 1).
     integer,dimension(2)                    :: Border                   ! Boundaries of the modification of CD and CS in case of calling CoeffInfl_Line_Full.
         
-    ! This subroutine computes the influence coefficients, creates the linear system and solves it.
-
-    ! CD and CS have already a value, consequently, in case of partial computation of the influence coefficients, only coefficients will be updates. The other ones will keep their value.
-    
-    ierror = 0
-    
-    ! Allocation.
-    N = Mesh%Nsys
-    allocate(A(N,N), B(N), Sol(N))
-
-    ! Initialization of Opt.
-    ! Opt = false for the BVP on Phi and true for the BVP on DPhiDt (forced motion).
-    Opt = .false.
-    if(present(Option))then
-        ! Case of the second call of solBVP for a forced mesh.
-        if(Option) Opt = .true.
-    end if
-        
-    if(not(Opt))then
-
-        call cpu_time(time(9))
-
-    end if
-    
-    ! Building of A, B and initialization of Sol.
-    call SystLin(CD, CS, Ecoulement, Mesh, A, B, Sol,Nnodes,N, Option)
-    
-    if(not(Opt))then
-
-        call cpu_time(time(10))
-
-    end if
-    
-    ! Solving of the linear system.
-    if(iprint>0) print*,"Resolution système linéaire ..."
-    if (Solv==0) then
-        call GMRES(A, B, Sol, N, ierror)
-    else  
-        call LU(A, B, Sol, N)
-    end if
-    
-    if(not(Opt))then
-
-        call cpu_time(time(11))
-
-    end if
-    
-    if(ierror/=0) goto 9999
-    
-    ! Distribution of the solution.
-    if(iprint>0) print*,"Mise à jour champ ecoulement ..." 
-    call postSL(Sol,N, Mesh, Ecoulement, Option)
-    
-    9999 continue
-        if(ierror/=0)then
-            write(*,90),ierror
-        end if
-    90 format('error #',i3,' : solBVP: pb. in solving the Boundary Value Problem.')
-
-    ! Deallocating.
-    deallocate(A, B, Sol)
-
-end subroutine solBVP2
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!                                                                                                   !
-!                                   Solveur du Problème aux Limites                                 !
-!                                                                                                   !
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-subroutine solBVP(Ecoulement, Mesh, CD, CS,Nnodes,time,boolRemesh, t, Option)
-    !!!!!Problème :
-    !   Résoudre le système des équations intégrales par
-    !       o Calcul ou récupération des coefficients d'influence
-    !       o Définition du système linéaire
-    !       o Résolution du système linéaire
-    !       o Redistribution des solutions
-    !!!!!
-
-    !f2py integer*1, dimension(1000)        :: Ecoulement
-    type(TEcoulement)                       :: Ecoulement               ! Flow parameters.
-    !f2py integer*1, dimension(1000)        :: Mesh
-    type(TMaillage), intent(in)             :: Mesh                     ! Mesh.
-    integer,intent(in)                      :: Nnodes                   ! Number of nodes in the mesh.
-    real(rp), dimension(Nnodes,Nnodes)      :: CD, CS                   ! Influence coefficient matrices.
-    logical,intent(in),optional             :: boolRemesh               ! Boolean to know if the mesh of the bodies or/and the free surface was regenerated (true) or not (false).
-    
-    real(rp),dimension(20) :: time
-    
-    real(rp), intent(in), optional          :: t                        ! Parameter to know if the influence coefficients have to be computed or not (t = -1 : yes, t > 0 : no).
-    logical, intent(in), optional           :: Option                   ! present(Option) = false for the BVP on Phi, present(Option) = true and Option = true for the BVP on DPhiDt.
-    
-    logical                                 :: Opt                      ! = false : BVP on Phi, = true : BVP on DPhiDt.
-    integer                                 :: j,k, N, jk, j1, j2, j3   ! Parameters.
-    integer, dimension(2,2)                 :: borne                    ! Boundaries for the computation of the influence coefficients (nodes and panels).
-    real(rp)                                :: CIPartiel                ! Parameter to know if the partial computation of the influence coefficient has to be done or not.
-    real(rp),allocatable, dimension(:,:)    :: A                        ! A matrix of the linear system.
-    real(rp),allocatable, dimension(:)      :: B, Sol                   ! B matrix and the solution of the linear system.
-    logical, dimension(:),allocatable       :: LTab                     ! Table to know if a node moved enough to compute its influence coefficients again (= false) or not (= true).
-    logical, dimension(:),allocatable       :: BPoint                   ! Neighbours (nodes) of the nodes of LTab.
-    logical, dimension(:),allocatable       :: BFace                    ! Panels linked to the nodes of LTab and their neighbours (panels).
-    integer                                 :: ierror                   ! Error flag.
-    logical                                 :: bool                     ! Computation of the CI (true) or not (false) when it was already done after the remeshing (only for jk = 1).
-    integer,dimension(2)                    :: Border                   ! Boundaries of the modification of CD and CS in case of calling CoeffInfl_Line_Full.
-        
-    integer :: i, compt ! A SUPPPRIMER
+    integer :: i_test, compt ! a supprimer
     
     ! This subroutine computes the influence coefficients, creates the linear system and solves it.
 
@@ -159,7 +58,7 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS,Nnodes,time,boolRemesh, t, Option)
     
     ! Allocation.
     N = Mesh%Nsys
-    allocate(A(N,N), B(N), Sol(N))
+    allocate(Sol(N))
 
     ! Initialization of Opt.
     ! Opt = false for the BVP on Phi and true for the BVP on DPhiDt (forced motion).
@@ -203,8 +102,8 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS,Nnodes,time,boolRemesh, t, Option)
             
             !A SUPPRIMER
             compt = 0
-            do i =1, Mesh%Nnoeud
-                if (Ltab(i)) then
+            do i_test =1, Mesh%Nnoeud
+                if (Ltab(i_test)) then
                     compt = compt + 1
                 end if
             end do
@@ -411,6 +310,456 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS,Nnodes,time,boolRemesh, t, Option)
     ! Building of A, B and initialization of Sol.
     call SystLin(CD, CS, Ecoulement, Mesh, A, B, Sol,Nnodes,N, Option)
     
+
+    if(not(Opt))then
+#ifdef _OPENMP
+    !$ time(10) = omp_get_wtime()
+#else
+    call cpu_time(time(10))
+#endif
+    end if
+    
+    ! Solving of the linear system.
+    if(iprint>0) print*,"Resolution système linéaire ..."
+    if (Solv==0) then
+        call GMRES(A, B, Sol, N, ierror)
+    else  
+        call LU(A, B, Sol, N)
+    end if
+    
+    if(not(Opt))then
+#ifdef _OPENMP
+    !$ time(11) = omp_get_wtime()
+#else
+    call cpu_time(time(11))
+#endif
+    end if
+    
+    if(ierror/=0) goto 9999
+    
+    ! Distribution of the solution.
+    if(iprint>0) print*,"Mise à jour champ ecoulement ..." 
+    call postSL(Sol,N, Mesh, Ecoulement, Option)
+    
+    9999 continue
+        if(ierror/=0)then
+            write(*,90),ierror
+        end if
+    90 format('error #',i3,' : solBVP: pb. in solving the Boundary Value Problem.')
+
+    ! Deallocating.
+    !deallocate(A, B, Sol)
+
+end subroutine solBVP3
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!                                                                                                   !
+!                                   Solveur du Problème aux Limites (Yohan)                                !
+!                                                                                                   !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine solBVP2(Ecoulement, Mesh, CD, CS,Nnodes,time,boolRemesh, t, Option)
+    !!!!!Problème :
+    !   Résoudre le système des équations intégrales par
+    !       o Calcul ou récupération des coefficients d'influence
+    !       o Définition du système linéaire
+    !       o Résolution du système linéaire
+    !       o Redistribution des solutions
+    !!!!!
+
+    !f2py integer*1, dimension(1000)        :: Ecoulement
+    type(TEcoulement)                       :: Ecoulement               ! Flow parameters.
+    !f2py integer*1, dimension(1000)        :: Mesh
+    type(TMaillage), intent(in)             :: Mesh                     ! Mesh.
+    integer,intent(in)                      :: Nnodes                   ! Number of nodes in the mesh.
+    real(rp), dimension(Nnodes,Nnodes)      :: CD, CS                   ! Influence coefficient matrices.
+    logical,intent(in),optional             :: boolRemesh               ! Boolean to know if the mesh of the bodies or/and the free surface was regenerated (true) or not (false).
+    
+    real(rp),dimension(20) :: time
+    
+    real(rp), intent(in), optional          :: t                        ! Parameter to know if the influence coefficients have to be computed or not (t = -1 : yes, t > 0 : no).
+    logical, intent(in), optional           :: Option                   ! present(Option) = false for the BVP on Phi, present(Option) = true and Option = true for the BVP on DPhiDt.
+    
+    logical                                 :: Opt                      ! = false : BVP on Phi, = true : BVP on DPhiDt.
+    integer                                 :: j,k, N, jk, j1, j2, j3   ! Parameters.
+    integer, dimension(2,2)                 :: borne                    ! Boundaries for the computation of the influence coefficients (nodes and panels).
+    real(rp)                                :: CIPartiel                ! Parameter to know if the partial computation of the influence coefficient has to be done or not.
+    real(rp),allocatable, dimension(:,:)    :: A                        ! A matrix of the linear system.
+    real(rp),allocatable, dimension(:)      :: B, Sol                   ! B matrix and the solution of the linear system.
+    logical, dimension(:),allocatable       :: LTab                     ! Table to know if a node moved enough to compute its influence coefficients again (= false) or not (= true).
+    logical, dimension(:),allocatable       :: BPoint                   ! Neighbours (nodes) of the nodes of LTab.
+    logical, dimension(:),allocatable       :: BFace                    ! Panels linked to the nodes of LTab and their neighbours (panels).
+    integer                                 :: ierror                   ! Error flag.
+    logical                                 :: bool                     ! Computation of the CI (true) or not (false) when it was already done after the remeshing (only for jk = 1).
+    integer,dimension(2)                    :: Border                   ! Boundaries of the modification of CD and CS in case of calling CoeffInfl_Line_Full.
+        
+    ! This subroutine computes the influence coefficients, creates the linear system and solves it.
+
+    ! CD and CS have already a value, consequently, in case of partial computation of the influence coefficients, only coefficients will be updates. The other ones will keep their value.
+    
+    ierror = 0
+    
+    ! Allocation.
+    N = Mesh%Nsys
+    allocate(A(N,N), B(N), Sol(N))
+
+    ! Initialization of Opt.
+    ! Opt = false for the BVP on Phi and true for the BVP on DPhiDt (forced motion).
+    Opt = .false.
+    if(present(Option))then
+        ! Case of the second call of solBVP for a forced mesh.
+        if(Option) Opt = .true.
+    end if
+        
+    if(not(Opt))then
+
+        call cpu_time(time(9))
+
+    end if
+    
+    ! Building of A, B and initialization of Sol.
+    call SystLin(CD, CS, Ecoulement, Mesh, A, B, Sol,Nnodes,N, Option)
+    
+    if(not(Opt))then
+
+        call cpu_time(time(10))
+
+    end if
+    
+    ! Solving of the linear system.
+    if(iprint>0) print*,"Resolution système linéaire ..."
+    if (Solv==0) then
+        call GMRES(A, B, Sol, N, ierror)
+    else  
+        call LU(A, B, Sol, N)
+    end if
+    
+    if(not(Opt))then
+
+        call cpu_time(time(11))
+
+    end if
+    
+    if(ierror/=0) goto 9999
+    
+    ! Distribution of the solution.
+    if(iprint>0) print*,"Mise à jour champ ecoulement ..." 
+    call postSL(Sol,N, Mesh, Ecoulement, Option)
+    
+    9999 continue
+        if(ierror/=0)then
+            write(*,90),ierror
+        end if
+    90 format('error #',i3,' : solBVP: pb. in solving the Boundary Value Problem.')
+
+    ! Deallocating.
+    deallocate(A, B, Sol)
+
+end subroutine solBVP2
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!                                                                                                   !
+!                                   Solveur du Problème aux Limites                                 !
+!                                                                                                   !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
+    !!!!!Problème :
+    !   Résoudre le système des équations intégrales par
+    !       o Calcul ou récupération des coefficients d'influence
+    !       o Définition du système linéaire
+    !       o Résolution du système linéaire
+    !       o Redistribution des solutions
+    !!!!!
+
+    !f2py integer*1, dimension(1000)        :: Ecoulement
+    type(TEcoulement)                       :: Ecoulement               ! Flow parameters.
+    !f2py integer*1, dimension(1000)        :: Mesh
+    type(TMaillage), intent(in)             :: Mesh                     ! Mesh.
+    integer,intent(in)                      :: Nnodes                   ! Number of nodes in the mesh.
+    real(rp), dimension(Nnodes,Nnodes)      :: CD, CS                   ! Influence coefficient matrices.
+    logical,intent(in),optional             :: boolRemesh               ! Boolean to know if the mesh of the bodies or/and the free surface was regenerated (true) or not (false).
+    
+    real(rp),dimension(20) :: time
+    
+    real(rp), intent(in), optional          :: t                        ! Parameter to know if the influence coefficients have to be computed or not (t = -1 : yes, t > 0 : no).
+    logical, intent(in), optional           :: Option                   ! present(Option) = false for the BVP on Phi, present(Option) = true and Option = true for the BVP on DPhiDt.
+    
+    logical                                 :: Opt                      ! = false : BVP on Phi, = true : BVP on DPhiDt.
+    integer                                 :: j,k, N, jk, j1, j2, j3   ! Parameters.
+    integer, dimension(2,2)                 :: borne                    ! Boundaries for the computation of the influence coefficients (nodes and panels).
+    real(rp)                                :: CIPartiel                ! Parameter to know if the partial computation of the influence coefficient has to be done or not.
+    real(rp),allocatable, dimension(:,:)    :: A                        ! A matrix of the linear system.
+    real(rp),allocatable, dimension(:)      :: B, Sol                   ! B matrix and the solution of the linear system.
+    logical, dimension(:),allocatable       :: LTab                     ! Table to know if a node moved enough to compute its influence coefficients again (= false) or not (= true).
+    logical, dimension(:),allocatable       :: BPoint                   ! Neighbours (nodes) of the nodes of LTab.
+    logical, dimension(:),allocatable       :: BFace                    ! Panels linked to the nodes of LTab and their neighbours (panels).
+    integer                                 :: ierror                   ! Error flag.
+    logical                                 :: bool                     ! Computation of the CI (true) or not (false) when it was already done after the remeshing (only for jk = 1).
+    integer,dimension(2)                    :: Border                   ! Boundaries of the modification of CD and CS in case of calling CoeffInfl_Line_Full.
+        
+    integer :: i_test, compt ! a supprimer
+    
+    ! This subroutine computes the influence coefficients, creates the linear system and solves it.
+
+    ! CD and CS have already a value, consequently, in case of partial computation of the influence coefficients, only coefficients will be updates. The other ones will keep their value.
+    
+    ierror = 0
+    
+    ! Allocation.
+    N = Mesh%Nsys
+    allocate(A(N,N), B(N), Sol(N))
+
+    ! Initialization of Opt.
+    ! Opt = false for the BVP on Phi and true for the BVP on DPhiDt (forced motion).
+    Opt = .false.
+    if(present(Option))then
+        ! Case of the second call of solBVP for a forced mesh.
+        if(Option) Opt = .true.
+    end if
+    
+    ! Initialization of CIPartiel.
+    ! For the second BVP, t = ti > 0, therefore CIPartiel > 0.
+    CIPartiel = 1._RP
+    if(present(t))then
+        CIPartiel = t 
+    end if
+    
+    ! Initialization of bool (not computation of the influence coefficient matrices when boolRemesh = true (in case of remeshing when jk = 1).
+    bool = .true.
+    if(present(boolRemesh))then
+        if(boolRemesh)then ! Remeshing was done.
+            bool = .false.
+        end if
+    end if
+        
+    ! Computation of the influence coefficients
+    if(CCI .and. DeformMesh .and. bool)then ! Partial computation of the influence coefficients, the mesh is moving and no remeshing.
+        if(CIPartiel.lt.0)then ! If the partial computation of the influence coefficients is activated.
+            allocate(LTab(Mesh%Nnoeud))
+            Ltab = .true.
+            allocate(BPoint(Mesh%Nnoeud))
+            BPoint = .false.
+            allocate(BFace(Mesh%Nfacette))
+            BFace = .false.
+    
+            borne = reshape((/1, 1, Mesh%Nsys, Mesh%Nfsys/), (/2,2/)) !  All the nodes of the system.
+            
+            ! Filling LTab.
+            call DeplNoeud(Mesh, LTab, borne,Mesh%Nnoeud) ! LTab(j) = false : computation in using CoeffInfl_Line.
+            
+            
+            
+            !A SUPPRIMER
+            compt = 0
+            do i_test =1, Mesh%Nnoeud
+                if (Ltab(i_test)) then
+                    compt = compt + 1
+                end if
+            end do
+            
+            print *, "Nombre de noeuds fixes : ", compt,"/", Mesh%Nnoeud
+            
+            !------------
+            
+            ! Filling of BPoint and BFace.
+            call ZoneInfl(Mesh, Ltab, borne, BPoint, BFace,Mesh%Nnoeud,Mesh%Nfacette) ! BPoint(j) or BFace(j) = true : computation in using CoeffInfl_Col.
+
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            !           Free surface panels <-> Free surface panels
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            
+            ! If the free surface is meshed.
+            if(Mesh%FS%CMD(2))then 
+                
+                ! Boundaries for the free surface nodes.
+                borne = reshape(Mesh%FS%IndFS(1:4), (/2,2/))
+                
+                ! Rows.
+                if(NThreads.eq.1)then ! Sequantial.
+                    do jk = borne(1,1),borne(1,2) ! Nodes.
+                        if(not(LTab(jk)))then ! If the node is taken into account (LTab = false)
+                        
+                            ! Initialization of the lines of CD and CS for the nodes of the free surface.
+                            CS(jk,borne(1,1):borne(1,2)) = 0._rp
+                            CD(jk,borne(1,1):borne(1,2)) = 0._rp
+                        
+                            ! Computation of the line which matches with the node.
+                            call CoeffInfl_Line(Mesh, CS(jk,borne(1,1):borne(1,2)), CD(jk,borne(1,1):borne(1,2)),&
+                            &                                     borne(1,2)-borne(1,1)+1,jk, borne(1,1), borne)
+                        end if
+                    end do
+                else ! Parallel.
+                    Border(1) = borne(1,1)
+                    Border(2) = borne(1,2)
+                    call CoeffInfl_Line_Full(Mesh,Nnodes, CS, CD,LTab, Border,borne(1,1),borne)
+                end if
+                
+                ! Columns
+                do jk = borne(1,1),borne(1,2) ! Nodes.
+                    if(BPoint(jk))then
+                        ! Initialization of the columns of CD and CS for the nodes of the free surface.
+                        where(LTab(borne(1,1):borne(1,2))) CS(borne(1,1):borne(1,2),jk) = 0._rp ! where(LTab(borne(1,1):borne(1,2))) : when LTab(j) = T do CS(:,jk) = 0.
+                        where(LTab(borne(1,1):borne(1,2))) CD(borne(1,1):borne(1,2),jk) = 0._rp ! where(LTab(borne(1,1):borne(1,2))) : when LTab(j) = T do CD(:,jk) = 0.
+                    end if
+                end do
+                
+                !if(NThreads.eq.1)then ! Sequantial.
+                do jk = borne(2,1),borne(2,2) ! Panels.
+                    if(BFace(jk))then
+                        j1 = Mesh%Tfacette(jk)%Tnoeud(1)
+                        j2 = Mesh%Tfacette(jk)%Tnoeud(2)
+                        j3 = Mesh%Tfacette(jk)%Tnoeud(3)
+                        
+                        ! Computation of the column which matches with the node.
+                        call CoeffInfl_Col(Mesh,&
+                        &                    CD(borne(1,1):borne(1,2),j1), CS(borne(1,1):borne(1,2),j1), BPoint(j1),&
+                        &                    CD(borne(1,1):borne(1,2),j2), CS(borne(1,1):borne(1,2),j2), BPoint(j2),&
+                        &                    CD(borne(1,1):borne(1,2),j3), CS(borne(1,1):borne(1,2),j3), BPoint(j3),&
+                        &                    borne(1,2)-borne(1,1)+1,N,jk, Ltab, borne)
+                    end if
+                end do
+                !else ! Parallel.
+                    !call CoeffInfl_Col_Full(Mesh, CD, CS, Nnodes,Mesh%Nfacette, LTab,BPoint,BFace,borne)
+                !end if
+                
+            end if
+
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            !              Free surface panels <-> Body panels
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            
+            ! All the nodes of both the floater and the free surface meshes are taken into account here.
+            
+            do j = 1,Mesh%NBody
+                
+                if(Mesh%Body(j)%Active)then
+                    
+                    ! If both the free surface and the floaters are meshed.    
+                    if(Mesh%FS%CMD(2) .or. Mesh%Body(j)%CMD(2) .or. Mesh%Body(j)%CMD(1))then
+                        
+                        ! Influence of the nodes of the floater on the nodes of the free surface.
+                        borne = reshape((/Mesh%Body(j)%IndBody(1), Mesh%FS%IndFS(2), Mesh%Body(j)%IndBody(3), Mesh%FS%IndFS(4)/), (/2,2/))
+                        CD(borne(1,1):borne(1,2) , Mesh%FS%IndFS(1):Mesh%FS%IndFS(3)) = 0._RP
+                        CS(borne(1,1):borne(1,2) , Mesh%FS%IndFS(1):Mesh%FS%IndFS(3)) = 0._RP
+                        call CoeffInfl(Mesh, CD, CS,N, borne)
+                        
+                        ! Influence of the nodes of the free surface on the nodes of the floater.
+                        borne = reshape((/Mesh%FS%IndFS(1), Mesh%Body(j)%IndBody(2), Mesh%FS%IndFS(3), Mesh%Body(j)%IndBody(4)/), (/2,2/))
+                        CD(borne(1,1):borne(1,2), Mesh%Body(j)%IndBody(1):Mesh%Body(j)%IndBody(3)) = 0._RP
+                        CS(borne(1,1):borne(1,2), Mesh%Body(j)%IndBody(1):Mesh%Body(j)%IndBody(3)) = 0._RP
+                        call CoeffInfl(Mesh, CD, CS,N, borne)
+                        
+                    endif
+                
+                end if
+                
+            end do
+            
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            !                  Body panels <-> Body panels
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            
+            do j = 1,Mesh%NBody
+                do k = 1,Mesh%NBody
+                                        
+                    if(Mesh%Body(j)%Active .and. Mesh%Body(k)%Active)then
+                        
+                        ! If the floaters are meshed.
+                        if(Mesh%Body(k)%CMD(2) .or. Mesh%Body(j)%CMD(2) .or.&
+                            &          j.ne.k .and. (Mesh%Body(k)%CMD(1) .or. Mesh%Body(j)%CMD(1)) )then
+                            
+                            ! Boundaries for the floater nodes.
+                            borne = reshape((/Mesh%Body(j)%IndBody(1), Mesh%Body(k)%IndBody(2), Mesh%Body(j)%IndBody(3), Mesh%Body(k)%IndBody(4)/), (/2,2/))
+                        
+                            ! If the relative velocity of the two floaters is great enough : computation of all the new floater influence coefficients.
+                            if(not(norm2(Mesh%Body(j)%VBody(1:3)-Mesh%Body(k)%VBody(1:3)).lt.Epsilon))then
+                                CD(borne(1,1):borne(1,2) , Mesh%Body(k)%IndBody(1):Mesh%Body(k)%IndBody(3)) = 0._RP
+                                CS(borne(1,1):borne(1,2) , Mesh%Body(k)%IndBody(1):Mesh%Body(k)%IndBody(3)) = 0._RP
+                                call CoeffInfl(Mesh, CD, CS,N, borne)
+                                
+                            else ! If the relative velocity of the two nodes is NOT great enough.
+                                
+                                ! In case of one floater : always this option.
+                                
+                                ! Rows.
+                                if(NThreads.eq.1)then ! Sequantial.
+                                    do jk = borne(1,1),borne(1,2)
+                                        if(.not. LTab(jk)) then
+                                            CS(jk , Mesh%Body(k)%IndBody(1):Mesh%Body(k)%IndBody(3)) = 0._rp
+                                            CD(jk , Mesh%Body(k)%IndBody(1):Mesh%Body(k)%IndBody(3)) = 0._rp
+                                            call CoeffInfl_Line(Mesh, CS(jk,Mesh%Body(k)%IndBody(1):Mesh%Body(k)%IndBody(3)) ,&
+                                            &                                                 CD(jk,Mesh%Body(k)%IndBody(1):Mesh%Body(k)%IndBody(3)), &
+                                            &                                                 Mesh%Body(k)%IndBody(3)-Mesh%Body(k)%IndBody(1)+1,jk, Mesh%Body(k)%IndBody(1), borne)
+                                        end if
+                                    end do
+                                else ! Parallel.
+                                    Border(1) = Mesh%Body(k)%IndBody(1)
+                                    Border(2) = Mesh%Body(k)%IndBody(3)
+                                    call CoeffInfl_Line_Full(Mesh, Nnodes,CS, CD, LTab, Border, Mesh%Body(k)%IndBody(1),borne)
+                                end if
+                                
+                                ! Columns.
+                                do jk = Mesh%Body(k)%IndBody(1),Mesh%Body(k)%IndBody(3)
+                                    if(BPoint(jk))then
+                                        where (LTab(borne(1,1):borne(1,2))) CS(borne(1,1):borne(1,2),jk) = 0._rp
+                                        where (LTab(borne(1,1):borne(1,2))) CD(borne(1,1):borne(1,2),jk) = 0._rp
+                                    end if
+                                end do          
+                                
+                                !if(NThreads.eq.1)then ! Sequantial.
+                                do jk = borne(2,1),borne(2,2)
+                                    if(BFace(jk))then
+                                            j1 =  Mesh%Tfacette(jk)%Tnoeud(1)
+                                            j2 =  Mesh%Tfacette(jk)%Tnoeud(2)
+                                            j3 =  Mesh%Tfacette(jk)%Tnoeud(3)
+                                            
+                                            call CoeffInfl_Col(Mesh,&
+                                        &                               CD(borne(1,1):borne(1,2),j1), CS(borne(1,1):borne(1,2),j1), BPoint(j1),&
+                                        &                               CD(borne(1,1):borne(1,2),j2), CS(borne(1,1):borne(1,2),j2), BPoint(j2),&
+                                        &                               CD(borne(1,1):borne(1,2),j3), CS(borne(1,1):borne(1,2),j3), BPoint(j3),&
+                                        &                               borne(1,2)-borne(1,1)+1,N,jk, Ltab, borne)    
+                                    end if
+                                end do
+                                !else ! Parallel.
+                                    !call CoeffInfl_Col_Full(Mesh, CD, CS, Nnodes,Mesh%Nfacette, LTab,BPoint,BFace,borne) 
+                                !end if
+                                
+                            end if
+                        end if
+                    end if
+                end do
+            end do
+            
+            ! Solid angle.
+            call Angle_solid(CD, Mesh%Nnoeud)
+            
+            ! Deallocating.
+            deallocate(Ltab)
+            deallocate(BPoint)
+            deallocate(BFace)
+            
+        end if
+    elseif(DeformMesh .and. bool)then ! No partial computation of the influence coefficients, the mesh is moving and no remeshing.
+        
+        if(.not. Opt)then ! If Opt = false (every case but forced motion when solBVP is called for the second time).
+            CD = 0._RP ; CS = 0._RP
+            call CoeffInfl(Mesh, CD, CS,N)
+        end if
+        
+    end if
+        
+    if(not(Opt))then
+#ifdef _OPENMP
+    !$ time(9) = omp_get_wtime()
+#else
+    call cpu_time(time(9))
+#endif
+    end if
+    
+    ! Building of A, B and initialization of Sol.
+    call SystLin(CD, CS, Ecoulement, Mesh, A, B, Sol,Nnodes,N, Option)
+    
+
+
     if(not(Opt))then
 #ifdef _OPENMP
     !$ time(10) = omp_get_wtime()
@@ -504,7 +853,6 @@ subroutine SystLin(CD, CS, Ecoulement, Mesh, A, B, Sol,Nnodes,Nsys, Option)
     else
         N = reshape([1,Mesh%FS%IndFS(1),Mesh%Body(Int_Body)%IndBody(1),Mesh%Nsys,Mesh%FS%IndFS(3),Mesh%Body(Mesh%NBody)%IndBody(3)],(/3,2/)) 
     end if
-    
 
     ! Building A
     A(N(1,1):N(1,2),N(2,1):N(2,2)) = CS(N(1,1):N(1,2),N(2,1):N(2,2)) ! CS(:,FS)

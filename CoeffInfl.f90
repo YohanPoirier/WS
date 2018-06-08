@@ -90,14 +90,15 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
                 Crmax = 64._rp*Facette%Rmax**2 ! Crmax = (8*Rmax)^2, the value of 8 is justified in 3.4 of LL.
                 Css = 0._rp ; Cdd = 0._rp
                 
+                
                 ! If (xOz) symmetry, computation for M(x,y,z) and M(x,-y,z).
                 do js1 = 1,-ns1,-2
-                                        
+                                                        
                     M(2) = js1*M(2)
                     
                     ! If bottom symmetry, computation for M(x,y,z) and M(x,y,-z-2h).
-                    do js = 1,-ns,-2    
-                        
+                    do js = 1,-ns,-2
+         
                         M(3) = js*M(3)-(1._rp-js)*Ldom(3)
                         MG = M-Facette%Gfacette                   
                         
@@ -107,14 +108,16 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
                         if(Cr.lt.Crmax)then ! Exact computation.
 
                             ! Exact computation.
+                           
                             call Iints(M, Facette, Isigma, Imu) ! Line integrations.
                             call Sints(M, Facette, Ssigma, Smu) ! Surface integrations.
-                        
+                            
                             ! Prise en compte du paramétrage de la facette.
                             Ar = [inv3,inv3,inv3] + matmul(Facette%dsT,MG)
                             Css = Css + Ssigma*Ar + matmul(Facette%dsT,Isigma)
                             Cdd = Cdd + Smu*Ar + matmul(Facette%dsT,Imu)
                             
+                                                                                    
 
                         else ! Asymptotic development.
                         
@@ -126,13 +129,14 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
                             
                             ! I_mu (Eq 3.54 of LL).
                             Cdd = Cdd + Facette%Aire*ZG*invRho/Cr*inv3
-                    
+ 
                         end if
                         
                     end do   
                 end do
-                
 
+
+                
                 ! Redistribution par colocation (computations are done for a panel but CD/CS but are wanted for the 3 nodes of the panel).                
                 CS(j,Facette%Tnoeud(1)) = CS(j,Facette%Tnoeud(1)) + Css(1)
                 CS(j,Facette%Tnoeud(2)) = CS(j,Facette%Tnoeud(2)) + Css(2)
@@ -1029,6 +1033,8 @@ subroutine DeplNoeud(Mesh, LTab, borne,Nnodes)
     enddo
 
 end subroutine DeplNoeud
+
+
 
 subroutine Iints(M, Facette, Isigma, Imu)
     !!!!! Problème :

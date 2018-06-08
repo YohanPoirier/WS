@@ -175,6 +175,49 @@ module API_WSC
     end subroutine
     
     
+    ! A SUPPRIMER
+    subroutine import_system(Nn, A_py, B_py)
+    
+        integer :: Nn
+        real(rp), dimension(Nn,Nn) :: A_py
+        real(rp), dimension(Nn) :: B_py
+        integer :: i,j
+
+        !f2py intent(in) :: Nn
+        !f2py intent(out) :: A_py, B_py
+
+        print*, allocated(A)
+        print*, allocated(B)
+        
+        print*, shape(A)
+        print*, shape(B)
+        print*, Nn
+        
+        do i = 1, Nn
+            B_py(i) = B(i)
+        end do
+        !do i = 1, Nn
+        !    do j = 1, Nn
+        !        A_py(i,j) = 1
+        !    end do
+        !end do
+        
+    end subroutine
+    
+    subroutine import_syst(Nn, A_py, B_py)
+        
+        integer :: Nn
+        real(rp), dimension(Nn,Nn) :: A_py
+        real(rp), dimension(Nn) :: B_py
+          
+        !f2py intent(in) :: Nn
+        !f2py intent(out) :: A_py, B_py
+        
+        A_py = A
+        B_py = B
+                       
+    end subroutine
+    
     subroutine import_indices(ind)
 
         integer, dimension(6) :: ind
@@ -214,6 +257,19 @@ module API_WSC
     end subroutine
     
     
+    subroutine export_ecoulement(N, ind, sol)
+        integer :: N
+        integer, dimension(6) :: ind
+        real(rp), dimension(N) :: sol
+        
+        !f2py intent(in) :: N, ind, sol
+        
+        Ecoulement%DPhiDn(ind(3):ind(4))%perturbation = sol(ind(3):ind(4))
+        Ecoulement%Phi(ind(5):ind(6))%perturbation = sol(ind(5):ind(6))
+        
+    end subroutine
+    
+    
     subroutine import_Ldom(Ldom_py)
         real(rp), dimension(5) :: Ldom_py
         !f2py intent(out) :: Ldom_py
@@ -233,7 +289,7 @@ module API_WSC
     end subroutine
     
     
-    subroutine import_Mesh(Nf, Nn, L_P, L_ds, L_T, L_G, L_N, L_Rmax)
+    subroutine import_Mesh(Nf, Nn, L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_type)
         
         integer :: Nf, Nn
         real(rp), dimension(Nf) :: L_Rmax
@@ -241,15 +297,17 @@ module API_WSC
         real(rp), dimension(Nf,3) :: L_G, L_N
         real(rp), dimension(Nf,3,3) :: L_ds
         real(rp), dimension(Nn,3) :: L_P
+        integer, dimension(Nn) :: L_type
 
 
         integer :: i
         
         !f2py intent(in) :: Nf, Nn
-        !f2py intent(out) :: L_P, L_ds, L_T, L_G, L_N, L_Rmax
+        !f2py intent(out) :: L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_type
         
         do i = 1, Nn
             L_P(i,:) = Mesh%Tnoeud(i)%Pnoeud
+            L_type(i) = Mesh%Tnoeud(i)%TypeNoeud
         end do
         
         do i = 1, Nf
@@ -300,19 +358,7 @@ module API_WSC
     end subroutine
     
     
-    subroutine import_syst(Nn, A_py, B_py)
-        
-        integer :: Nn
-        real(rp), dimension(Nn,Nn) :: A_py
-        real(rp), dimension(Nn) :: B_py
-          
-        !f2py intent(in) :: Nn
-        !f2py intent(out) :: A_py, B_py
-        
-        A_py = A
-        B_py = B
-                       
-    end subroutine
+
     
     subroutine import_CI(Nn, CD_py, CS_py)
         
@@ -560,6 +606,8 @@ module API_WSC
         if (bool_CUDA) then
             call solBVP2( Ecoulement, Mesh, CD, CS, Nnodes,time2,boolRemesh, rCI)
         else
+            !allocate(A(Mesh%Nsys,Mesh%Nsys), B(Mesh%Nsys))
+            !call solBVP3( Ecoulement, Mesh, CD, CS,A,B, Nnodes,time2,boolRemesh, rCI)
             call solBVP( Ecoulement, Mesh, CD, CS, Nnodes,time2,boolRemesh, rCI)
         end if
         
@@ -593,20 +641,15 @@ module API_WSC
     
     end subroutine API_Finite_differences
     
-    subroutine ForceBodyMotion_solBVP(bool_cuda)
-    
-        logical :: bool_cuda
+    subroutine ForceBodyMotion_solBVP()
+
         ! This subroutine computes the hydrodynamic loads if the floater is still and without finite difference approximation.
         
         time2 = 0._RP !  To be deleted
         call ForceBodyMotion(Mesh, Ecoulement, ti,InputData)
-        
-        if (bool_cuda) then
-            call solBVP2(Ecoulement, Mesh, CD, CS,Nnodes, time2, .false., ti, .true.) ! .false. should be deleted.
-        else
-            call solBVP(Ecoulement, Mesh, CD, CS,Nnodes, time2, .false., ti, .true.) ! .false. should be deleted.
-        end if
-    
+
+        call solBVP(Ecoulement, Mesh, CD, CS,Nnodes, time2, .false., ti, .true.) ! .false. should be deleted.
+
     end subroutine ForceBodyMotion_solBVP
     
     subroutine API_PlotForces()

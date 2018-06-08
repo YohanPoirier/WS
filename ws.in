@@ -45,7 +45,7 @@
     Latching Method				:   is_latching	    :	F
     Starting time                               :   t0              :   0.
     Time step                                   :   dt              :   0.01
-    Number of time step                         :   nt              :   2000    
+    Number of time step                         :   nt              :   200    
     Time instant for initial ramp               :   [T1,T2]         :   [0. 1.]
     Starting time for output                    :   Tout            :   0.
     Time step for output                        :   nout            :   1
@@ -53,7 +53,7 @@
     Tolerance GMRES                             :   tolGMRES        :   0.000000001
     Smoothing frequency                         :   nliss           :   5
     Hydrostatique computed or not		:   hydrostatique   :   T
-    Number of threads				:   NThreads	    :   8
+    Number of threads				:   NThreads	    :   1
 # WAVE PROBES -----------------------------------------------------------------------
     Number of wave probes			:   nWaveProbes	    :   1
     Position of WP 3				:   Position 3	    :   [0.4 0.0 0.]

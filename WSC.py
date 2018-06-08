@@ -5,21 +5,20 @@ from WSC_mod import *
 
 import pyCUDA_CI as CI
 import pyCUDA_system as py_sys
+import pyCUDA_GMRES as py_GMRES
 import cas_test as ct
 import numpy as np
 import time
 
-
-
-t1 = time.time()
-tc = time.time()
+import ecriture_data as ec
 
 
 
 bool_cuda = True
-precision = 1
+precision = 2
 N_sym = 1
 N_n_max = 5000
+tol = 1e-6
 N_seuil = 8 #Critere pour utiliser l'expression asymptotique
 
 # Reading the input files
@@ -43,13 +42,26 @@ init_CI_kernel, CI_kernel, angle_solide_kernel = CI.init_CI(precision)
 systeme_kernel = py_sys.init_systeme(precision)
 
 
-# Mise en memoire GPU des matrices CI
-A_CD_d, A_CS_d, A_d = CI.creation_matrices_GPU(N_n_max, precision)
+
         
+t1 = time.time()
+
+
 
 # Temporal loop
 for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
-
+    print("pas de temps : " , jt)
+    
+    
+    t2 = time.time()
+    
+    print("Temps ecoule : ", t2-t1)
+    
+    
+    if jt == 6 :
+        input()
+    
+    
     # RK4 loop
     for jk in range(1,4+1): # +1 to reach jk = 4
 
@@ -101,94 +113,81 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
         # Calcul des vitesses des noeuds du maillage (updating the velocity of the nodes)
         if (parameters.deformmesh == -1): # -1 = True
             api_wsc.api_meshvel()
-            
-            
-        t1  = time.time()
-        api_wsc.api_solbvp(False)
-        t2 = time.time()
+         
+
+
+
+
+
         
-        print()
-        print("Calcul BVP (CPU) : {}".format(t2-t1))
-        
+
         # Calcul des coefficients d'influence avec GPU
 
         if bool_cuda :
 
+
+            ta = time.time()
+            # Import des informations
             Ldom = api_wsc.import_ldom()
             ind = api_wsc.import_indices()
             N_f, N_n, N_body = api_wsc.import_mesh_dim()
             X_connu, X_inconnu_0 = api_wsc.import_ecoulement(N_n, ind)
+            L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_type = api_wsc.import_mesh(N_f, N_n)
+            N_n_max = N_n
+        
+            tb = time.time()
+            # Mise en memoire GPU des matrices CI
+            A_CD_d, A_CS_d, A_d = CI.creation_matrices_GPU(N_n_max, precision)
+                        
             
-            if N_n > N_n_max :
-                print("Erreur. N : {} , N_max : {}".format(N_n, N_n_max))
-                input()
-                
-            L_P, L_ds, L_T, L_G, L_N, L_Rmax = api_wsc.import_mesh(N_f, N_n)
-            
+            tc = time.time()
+            # Calcul du seuil pour les expressions asymptotiques
             L_Crmax = np.zeros_like(L_Rmax)
             for i in range(L_Crmax.shape[0]):
                 L_Crmax[i] = (N_seuil*L_Rmax[i])**2
 
-
-            t1 = time.time()
+            td = time.time()
             # Remise a zero de la matrice de coefficient d'influence
             CI.init_matrice_CI(init_CI_kernel, A_CD_d, A_CS_d, N_n, N_n_max)
 
+            te = time.time()
             # Calcul des coefficients d'influence
             CI.calcul_matrice_CI(A_CD_d, A_CS_d, L_P, L_T, L_N, L_G, L_Crmax, L_ds, N_sym, Ldom[2], CI_kernel, precision, N_n_max)
 
 
-            # Calcu de l'angle solide
+            tf = time.time()
+            # Calcul de l'angle solide
             CI.calcul_angle_solide(A_CD_d, N_n, N_n_max, angle_solide_kernel)
             
 
-            #B = construction_systeme(A_d, A_CD_d, A_CS_d, Xconnu, L_type, systeme_kernel)
-            
-            
-            # Export des CI vers fortran
-
-
-            t2 = time.time()
-
-            
-            print("Temps CI (GPU) : {}".format(t2-t1))
-            
-           
-            
-            CD = A_CD_d.get()
-            CS = A_CS_d.get()
-            
-            
-            # CD2, CS2 = api_wsc.import_ci(N_n)
-            # 
-            # 
-            # for i in range(5):
-            #     for j in range(5):
-            #         print(i,j,CD[i,j], CD2[i,j])
-            #         
-            # for i in range(5):
-            #     for j in range(5):
-            #         print(i,j,CS[i,j], CS2[i,j])
-            #         
-            #         
- 
-          #   
+            tg = time.time()
+            # Construction du systeme
+            B = py_sys.construction_systeme(A_d, A_CD_d, A_CS_d, X_connu, ind - 1, N_n_max, True, systeme_kernel, precision)
             
 
-            api_wsc.export_ci(CD[:N_n,:N_n], CS[:N_n,:N_n])
-            t3 = time.time()
+            th = time.time()
+            # Resolution du systeme
+            sol = py_GMRES.GMRES_d(A_d, B, X_inconnu_0, tol, 100, precision)
             
-        # Boundary element solver
+            ti = time.time()
+            
+            # Export de la solution vers fortran
+            api_wsc.export_ecoulement(ind, sol)
+        
+        
+            tj = time.time()
+            
+            
+            print("Temps : ", tb-ta,tc-tb,td-tc,te-td,tf-te,tg-tf,th-tg, ti-th, tj-ti)
+        else :
+            
+            api_wsc.api_solbvp(False)
+            
+
+
+        ## A supprimer
         
 
-        api_wsc.api_solbvp(bool_cuda)
-        
-        t4 = time.time()
-
-        print("Temps get : {}".format( t3-t2))
-        print("Temps résolution (CPU) : {}".format(t4-t3))
-        
-        input()
 
         
         # Computation of the gradient on the floater (surface and normal gradient)
@@ -252,7 +251,7 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
                 if (jk == 1): # Only for the first RK4 step
                     api_wsc.api_finite_differences(jt)
             else: # not(FiniteDifference_ForceCalcul)
-                api_wsc.forcebodymotion_solbvp(bool_cuda)
+                api_wsc.forcebodymotion_solbvp()
 
         # Writting of the hydrodynamic loads in the output files
         if (jk == 1):
@@ -294,7 +293,6 @@ api_wsc.api_closing()
 
 # Deallocating
 api_wsc.deallocating_temporal_loop()
-
 
 
 t2 = time.time()

@@ -5,7 +5,12 @@ import skcuda.cublas as cublas
 from pycuda import gpuarray as ga
 import random as rd
 
-def product_Ax(A_d, X, N, handler):
+def product_Ax(A_d, X, N, handler, precision):
+    
+    if precision == 2 :
+        RP = np.float64
+    else :
+        RP = np.float32
     
     X_d = ga.to_gpu(X.reshape((N,1)).astype(RP))
     res_d = ga.to_gpu(np.zeros((N,1)).astype(RP))
@@ -34,7 +39,7 @@ def rotation(H,cs,sn,k):
     
 def apply_rotation(H,cs,sn,k):
     
-    for i in range(k-1):
+    for i in range(k):
         temp = cs[i]*H[i,k] + sn[i]*H[i+1,k]
         H[i+1,k] = -sn[i]*H[i,k] + cs[i]*H[i+1,k]
         H[i,k] = temp
@@ -44,11 +49,11 @@ def apply_rotation(H,cs,sn,k):
     H[k,k] = cs[k]*H[k,k] + sn[k]*H[k+1,k]
     H[k+1,k] = 0
   
-def Arnoldi_d(Q, A_d, H, k, handler):
+def Arnoldi_d(Q, A_d, H, k, handler, precision):
     
     N = Q.shape[0]
     ta = time.time()
-    v = product_Ax(A_d, Q[:,k], N, handler)
+    v = product_Ax(A_d, Q[:,k], N, handler, precision)
 
     tb = time.time()
     for i in range(k+1):
@@ -61,7 +66,7 @@ def Arnoldi_d(Q, A_d, H, k, handler):
     Q[:, k+1] = v/H[k+1,k]
     td = time.time()
     
-    print(tb-ta,tc-tb,td-tc)
+    #print(tb-ta,tc-tb,td-tc)
     
     
 def Arnoldi(Q, A, H, k):
@@ -121,20 +126,22 @@ def GMRES(A, B, X0, tol, Nmax) :
     
     print("Nombre d'iterations : {}".format(k))
     
+    
     Hinv = np.linalg.inv(H[:k,:k])
     
     y = np.matmul(Hinv[:k,:k],beta[:k])
     
     X = np.dot(Q[:, :k], y) + X0
     
-    td = time.time()
-    
     
     return X
 
-def GMRES_d(A_d, B, X0, tol, Nmax) :
+def GMRES_d(A_d, B, X0, tol, Nmax, precision) :
     
     handler = cublas.cublasCreate()
+    
+    
+
 
     # Initialisation
     N = B.shape[0]
@@ -144,23 +151,34 @@ def GMRES_d(A_d, B, X0, tol, Nmax) :
     sn = np.zeros(Nmax)
     e1 = np.zeros(Nmax+1)
     
-    # Residu initial
-    Ax = product_Ax(A_d, X0, N, handler)
+    #Test preliminaire
+    normB = np.linalg.norm(B)
+    if normB == 0 :
+        print("Nombre d'iterations : 0")
+        print("Erreur : ", 0)
+        if precision == 2 :
+            return np.zeros(N, np.float64)
+        else :
+            return np.zeros(N, np.float32)
     
-    print(Ax[:10])
+    # Residu initial
+    Ax = product_Ax(A_d, X0, N, handler, precision)
+    
     r0 = B - Ax
     Q[:,0] = r0/np.linalg.norm(r0)
     e1[0] = 1
     
     error = np.linalg.norm(r0)/np.linalg.norm(B)
+      
+    print("Error:",error)
+    
     beta = np.linalg.norm(r0)*e1
     
-
     k = 0
     
     while (error > tol) and k < min(Nmax,N) - 1 :
         
-        Arnoldi_d(Q, A_d, H, k, handler)
+        Arnoldi_d(Q, A_d, H, k, handler, precision)
 
         apply_rotation(H, cs, sn, k)
         beta[k+1] = -sn[k]*beta[k]
@@ -172,6 +190,7 @@ def GMRES_d(A_d, B, X0, tol, Nmax) :
     
     
     print("Nombre d'iterations : {}".format(k))
+    print("Erreur :", error)
     
     Hinv = np.linalg.inv(H[:k,:k])
     
@@ -179,48 +198,49 @@ def GMRES_d(A_d, B, X0, tol, Nmax) :
     
     X = np.dot(Q[:, :k], y) + X0
     
-    td = time.time()
+    
     
     
     return X
     
-## MAin (test)
+## Main (test)
  
-precision = 2
-
-if precision == 2 :
-    RP = np.float64
-else :
-    RP = np.float32
-      
-N = 1000
-
-X = np.zeros(N, dtype = RP)
-A = np.zeros((N,N), dtype = RP)
-
-for i in range(N):
-    X[i] = rd.random()
-    for j in range(N):
-        A[i,j] = rd.random()
-        
-    A[i,i] = 50 + 50*rd.random()
-        
-B = np.dot(A,X)
-
-
-A_d = ga.to_gpu(A)
-handler = cublas.cublasCreate()
-Bf = product_Ax(A_d, X, N, handler)
+if __name__ == "__main__" :
+    precision = 2
     
-
+    if precision == 2 :
+        RP = np.float64
+    else :
+        RP = np.float32
+        
+    N = 1000
     
-
-X0 = np.zeros(N)
-Nmax = N
-tol = 1e-7
-
-Xf = GMRES_d(A_d, B, X0, tol, Nmax) 
-
-for i in range(20) :
-    print(i, X[i], Xf[i])
+    X = np.zeros(N, dtype = RP)
+    A = np.zeros((N,N), dtype = RP)
+    
+    for i in range(N):
+        X[i] = rd.random()
+        for j in range(N):
+            A[i,j] = rd.random()
+            
+        A[i,i] = 50 + 50*rd.random()
+            
+    B = np.dot(A,X)
+    
+    
+    A_d = ga.to_gpu(A)
+    handler = cublas.cublasCreate()
+    Bf = product_Ax(A_d, X, N, handler, precision)
+        
+    
+        
+    
+    X0 = np.zeros(N)
+    Nmax = N
+    tol = 1e-7
+    
+    Xf = GMRES_d(A_d, B, X0, tol, Nmax, precision) 
+    
+    for i in range(20) :
+        print(i, X[i], Xf[i])
 
