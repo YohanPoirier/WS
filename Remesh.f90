@@ -57,7 +57,7 @@ subroutine Remesh(Mesh, Mesh0, t, InputData,dtl, fgeom_vect, bcorrect)
     real(rp),dimension(3)                       :: GOt                              ! GOt0 in the Cartesian frame.
     
     ! This subroutine updates the position of the nodes and the geometries.
-    
+
     ierror = 0
     
     O   = [0._rp,0._rp,0._rp]
@@ -79,6 +79,8 @@ subroutine Remesh(Mesh, Mesh0, t, InputData,dtl, fgeom_vect, bcorrect)
         boolc = .false.
     endif
     
+
+    
     ! Modification of the FS.
     if(DeformFS)then
         do j=Mesh%FS%IndFS(1),Mesh%FS%IndFS(3)
@@ -87,6 +89,7 @@ subroutine Remesh(Mesh, Mesh0, t, InputData,dtl, fgeom_vect, bcorrect)
                 Mesh%Tnoeud(j)%Pnoeud = Mesh0%Tnoeud(j)%Pnoeud + Mesh%Tnoeud(j)%Velocity(1:3)*h
                 call CEta0(Mesh%Tnoeud(j)%Pnoeud, t, Eta0)
                 Mesh%Tnoeud(j)%Pnoeud(3) = Eta0
+                
             else
                 ! Noeuds doubles : intersection surface libre / parois du domaine et surface libre / corps
                 Mesh%Tnoeud(j)%Pnoeud = Mesh0%Tnoeud(j)%Pnoeud 
@@ -1677,8 +1680,8 @@ subroutine Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_ve
         end do
         
         ! Flag to known if the free surface mesh needs to be remeshed or not.
-        DeformFS =  not(lineaireFS) .or. lineaireFS .and. not(lineaireBody) .and.  not(is_immerged)
-        
+        DeformFS =  not(lineaireFS) .or. not(lineaireBody) .and.  not(is_immerged)
+
         ! Remeshing (True) or not (False).
         boolRemesh = MeshQualityBodies .or. MeshQualityFS .or. CrossingFS .or. ForcedRemesh ! Either the quality of the mesh is not good enough (MeshQuality = True) or a body goes across the free surface (CrossingFS = True) or the remeshing is forced (ForcedRemesh).
         
@@ -1733,10 +1736,15 @@ subroutine Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_ve
             1 continue
             
             ! Remeshing.
+            
+            print*, RemeshFS
+            
             if(RemeshFS .or. (not(RemeshFS) .and. is_body))then ! No remeshing at all if no body and no remeshing of the FS.
                 call compute_mesh_fgeom(Mesh,Ecoulement,ti,fgeom_vect,fdomaine,nface,Grid,nb_point,nb_tri,ierror,InputData,nRemesh,boolRemeshFS,tab2,n_tab2,n_tab)
             end if         
             
+
+        
             ! Monitoring.
             if(iwmonitor)then
                 call PlotMonitor(ti,MeshQualityBodies,MeshQualityFS,CrossingFS,ForcedRemesh,boolRemeshFS,boolRemesh,ierror)

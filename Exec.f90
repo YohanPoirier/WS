@@ -43,15 +43,19 @@ subroutine Execution(fileparam,filegeom,InputData,get_State)
     write(*,*) 'output dir.  :'
     write(*,*) ''
     
+
     ! Reading NBodies
     call read_NBodies(filegeom)
     
     ! Reading nWP and the number of waves in case of Airy waves.
     call read_nWP(fileparam)
     
-    ! Creating and initializing of InputData
+    
+    ! Creating and initializing of InputData   
     call New_InputData(InputData,Nbodies,nWP)
+    
     call Initialization_InputData(InputData)
+ 
     
     ! Reading of the input file *.in.
     call read_input(fileparam,InputData,ierror)
@@ -64,7 +68,7 @@ subroutine Execution(fileparam,filegeom,InputData,get_State)
     
     ! Opening the output file Intersection_curves.dat
     call Opening_Intersection(get_State)
-    
+
     ! Error
     ierror = 0
     if(ierror/=0)then

@@ -251,8 +251,11 @@ subroutine BoucleTemporelle_RK4(Mesh, fgeom_vect, fdomaine, nface, Grid, nb_poin
             ! New mesh if necessary.
             if(jk.eq.1 .and. jt.ne.1)then
                 
-                ! Generation of a new mesh.             
+                ! Generation of a new mesh. 
+         
                 call Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_vect,fdomaine,nface,Grid,nb_point,nb_tri,IndBody_former,NBodies,Nnodes,Nnodes_FS,ierror,InputData,nRemesh,n_tab2,n_tab,ForcedRemesh,CrossingFS)
+                
+                
                 
                 ! Updating nliss in case of crossing the free surface.
                 call Updating_nliss(CrossingFS,jFiltering)
@@ -433,6 +436,7 @@ subroutine BoucleTemporelle_RK4(Mesh, fgeom_vect, fdomaine, nface, Grid, nb_poin
                 call Free_surface_RK_step(Mesh,Ecoulement,Ecoulement0,RK,h,jk,Nnodes_FS)
                 
                 ! Mise a jour des geometries et de la position des noeuds du maillage a partir de la vitesse des noeuds au temps ti (deformation).
+
                 if (DeformMesh) call Remesh(Mesh, Mesh0, ti,InputData, h, fgeom_vect) ! Could use RKVel.
                               
             end if

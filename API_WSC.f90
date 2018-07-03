@@ -395,13 +395,14 @@ module API_WSC
         call Execution(fileparam,filegeom,InputData,get_State)
         
         ! Updating InputData in case of state input file.
+
         if(get_State)then
-            if(get_State)then
-                t_tmp = t0 ! Back-up t0 of *.in.
-                call read_State_InputData(fileState,InputData,t0,jt0)
-                print*,"Simulation starts at t = ",t0," s"
-            end if
+            call read_State_InputData(fileState,InputData,t0,jt0)
+            print*,"Simulation starts at t = ",t0," s"
+            ti = t0
+            t_tmp = t0 ! Back-up t0 of *.in.
         end if
+
         
     end subroutine API_Execution
     
@@ -417,9 +418,9 @@ module API_WSC
         ! This subroutine wraps the subroutine Generation_Mesh.
         
         call Generation_Mesh(Mesh,fdomaine,fgeom_vect,nface,Grid,nb_point,nb_tri,ierror,InputData,get_State,tab2,n_tab2,n_tab)
-        if(get_State)then
-            t0 = t_tmp ! t0 is used in the generation of the mesh (explicit wave elevation).
-        end if
+        !if(get_State)then
+        !    t0 = t_tmp ! t0 is used in the generation of the mesh (explicit wave elevation).
+        !end if
     
     end subroutine API_Mesh
     
@@ -761,6 +762,15 @@ module API_WSC
         end if
         
     end subroutine New_allocation
+    
+    subroutine API_Write_State(filename, jt)
+    
+        character(len=50),intent(in) :: filename
+        integer, intent(in) ::jt
+        
+        call Write_State2(Mesh,Ecoulement,ti,jt,Starting_time,jFiltering, filename)
+        
+    end subroutine
     
     subroutine API_Zeroing_new_points()
     

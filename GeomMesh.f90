@@ -541,7 +541,8 @@ subroutine GeomInit(Mesh, fgeom_vect, t, InputData,bool, ierror)
     ! Flag to known if the floater mesh needs to be remeshed or not
     do nc = 1,NBodies
         if(Mesh%Body(nc)%Active)then
-            InputData%DeformBody(nc)  =   not(lineaireBody)   .or.    lineaireBody.and.not(lineaireFS).and. InputData%is_piercing(nc) == 1 ! is_piercing == 1: piercing body
+            InputData%DeformBody(nc)  =   not(lineaireBody)   .or.    not(lineaireFS).and. InputData%is_piercing(nc) == 1 ! is_piercing == 1: piercing body
+            
         end if
     end do
         
@@ -550,6 +551,7 @@ subroutine GeomInit(Mesh, fgeom_vect, t, InputData,bool, ierror)
     do nc=1,NBodies
         if(Mesh%Body(nc)%Active)then
             DeformMesh = DeformMesh .or. InputData%DeformBody(nc)
+            
         end if
     end do
     DeformMesh = DeformFS .or. DeformMesh

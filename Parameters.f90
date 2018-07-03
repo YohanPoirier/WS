@@ -64,6 +64,7 @@ logical                             :: lineaireBody                 ! Body posit
 logical                             :: RemeshFS                     ! Remeshing of the FS (T or F).
 logical                             :: ForcedRemeshFS               ! Remeshing of all the mesh at each time step (T or F).
 logical                             :: DeformFS                     ! Deformation of the FS.
+logical                             :: DeformBody                   ! Deformation of the body.
 logical                             :: RK_fige                      ! Maillage figé dans le schéma RK4.
 logical                             :: is_latching                  ! Latching method.
 real(rp)                            :: t0                           ! Décalage par rapport à l'instant initial de la houle.

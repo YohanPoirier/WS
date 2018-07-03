@@ -283,23 +283,29 @@ subroutine close_output(time,NBody)
     if(iwmass)         close(iomass)
     if(iwIntersection) close(ioIntersection)
         
-    do nc = 1,nWP
-        if(iwwave+nc)then      
+    
+    if(iwwave)then
+        do nc = 1,nWP
             close(iowave+nc)
-        end if
-    end do
+        end do
+    end if
     
-    do nc = Int_Body,NBody
-        if(iwmbody+nc)then
+    
+    
+    if(iwmbody)then
+        do nc = Int_Body,NBody
             close(iombody+nc)
-        end if
-    end do
+        end do
+    end if
     
-    do nc = Int_Body,NBody
-        if(iwLoads+nc)then
+    
+    
+    if(iwLoads)then
+        do nc = Int_Body,NBody
             close(ioLoads+nc)
-        end if
-    end do
+        end do
+    end if
+    
     
     
     open(unit=17,file='Temps_'//filename, iostat=ios)
@@ -1341,6 +1347,118 @@ subroutine Write_State(Mesh,Ecoulement,t,jt,Starting_time,jFiltering)
     end if
     
 end subroutine Write_State
+
+
+subroutine Write_State2(Mesh,Ecoulement,t,jt,Starting_time,jFiltering, filename)
+    
+    !f2py integer*1, dimension(1000)    :: Mesh
+    type(TMaillage),intent(in)          :: Mesh         ! Mesh.
+    !f2py integer*1, dimension(1000)    :: Ecoulement
+    character(len=50),intent(in)        :: filename    ! State input file.
+    type(TEcoulement),intent(in)        :: Ecoulement   ! Flow parameters.
+    real(rp),intent(in)                 :: t            ! Current time.
+    integer,intent(in)                  :: jt           ! Time loop parameter.
+    real(rp),intent(in)                 :: Starting_time! Starting time saved.
+    integer,intent(in)                  :: jFiltering   ! Counter to wait for 200 time steps before using the original parameters in case of a body crossing the free surface.
+    
+    integer                             :: nc,j,p       ! Loop parameters.
+    integer                             :: ios          ! Output flag.
+    
+    ! This subroutine writes the state vectors (time, position of the floaters, velocity of the floaters, position of the nodes, perturbation velocity potential on the free surface, pertubation wave elevation on the free surface) in State.txt.
+    
+
+    ! Opening.
+    open(unit=ioState,file=filename,iostat=ios)
+
+    if(ios/=0) stop "Write_State: error in the opening of State.txt"
+    write(ioState,'(50a)') 'Title = "State vector"'
+        
+    ! Starting time.
+    write(ioState,'(E)') Starting_time
+        
+    ! Current time.
+    write(ioState,'(E)') t
+        
+    ! Current jt.
+    write(ioState,'(I)') jt
+                
+    ! jFiltering.
+    write(ioState,'(I)') jFiltering
+        
+    ! Nnoeud
+    write(ioState,'(I)') Mesh%Nnoeud
+        
+    ! Active.
+    do nc = 1,Mesh%NBody
+        write(ioState,'(L)') Mesh%Body(nc)%Active
+    end do
+        
+    ! MBody.
+    do nc = Int_Body,Mesh%NBody
+        write(ioState,'(6E)') Mesh%Body(nc)%MBody
+    end do
+        
+    ! CSolv.
+    do nc = Int_Body,Mesh%NBody
+        write(ioState,'(6E)') Mesh%Body(nc)%CSolv
+    end do
+        
+    ! GBody.
+    do nc = Int_Body,Mesh%NBody
+        write(ioState,'(3E)') Mesh%Body(nc)%GBody
+    end do
+        
+    ! VBody.
+    do nc = Int_Body,Mesh%NBody
+        write(ioState,'(6E)') Mesh%Body(nc)%VBody
+    end do
+        
+    ! ----------------------------------------------
+    !                   Free surface 
+    ! ----------------------------------------------
+        
+    ! IndFS.
+    write(ioState,'(4I)') Mesh%FS%IndFS(1),Mesh%FS%IndFS(2),Mesh%FS%IndFS(3),Mesh%FS%IndFS(4)
+        
+    ! PNoeud, NVoisin and TVoisin on the free surface.
+    do j = Mesh%FS%IndFS(1),Mesh%FS%IndFS(3)
+        write(ioState,'(3E)') Mesh%Tnoeud(j)%Pnoeud
+        write(ioState,'(2I)') Mesh%Tnoeud(j)%NVoisin
+        do p = 1,Mesh%Tnoeud(j)%NVoisin(2)
+            write(ioState,'(2I)') Mesh%Tnoeud(j)%TVoisin(p,1),Mesh%Tnoeud(j)%TVoisin(p,2)
+        end do
+    end do
+        
+    ! Phi_p, Eta_p.
+    do j = Mesh%FS%IndFS(1),Mesh%FS%IndFS(3)
+        write(ioState,'(2E)') Ecoulement%Phi(j)%perturbation,Ecoulement%Eta(j)%perturbation
+    end do
+        
+    ! ----------------------------------------------
+    !              Bodies (tank included) 
+    ! ----------------------------------------------
+        
+    do nc = 1,Mesh%NBody ! Tank included.
+            
+        if(Mesh%Body(nc)%Active)then
+            
+            ! IndBody
+            write(ioState,'(4I)') Mesh%Body(nc)%IndBody(1),Mesh%Body(nc)%IndBody(2),Mesh%Body(nc)%IndBody(3),Mesh%Body(nc)%IndBody(4)
+            
+            ! PNoeud on the body mesh.
+            do j = Mesh%Body(nc)%IndBody(1),Mesh%Body(nc)%IndBody(3)
+                write(ioState,'(3E)') Mesh%Tnoeud(j)%Pnoeud
+            end do
+            
+        end if
+            
+    end do
+        
+    ! Closing.
+    close(ioState)
+
+    
+end subroutine Write_State2
 
 subroutine read_State_InputData(fileState,InputData,t,jt0)
     

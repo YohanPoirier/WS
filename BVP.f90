@@ -100,17 +100,7 @@ subroutine solBVP3(Ecoulement, Mesh, CD, CS, A, B, Nnodes,time,boolRemesh, t, Op
             
             
             
-            !A SUPPRIMER
-            compt = 0
-            do i_test =1, Mesh%Nnoeud
-                if (Ltab(i_test)) then
-                    compt = compt + 1
-                end if
-            end do
-            
-            print *, "Nombre de noeuds fixes : ", compt,"/", Mesh%Nnoeud
-            
-            !------------
+
             
             ! Filling of BPoint and BFace.
             call ZoneInfl(Mesh, Ltab, borne, BPoint, BFace,Mesh%Nnoeud,Mesh%Nfacette) ! BPoint(j) or BFace(j) = true : computation in using CoeffInfl_Col.
@@ -530,6 +520,7 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
             bool = .false.
         end if
     end if
+    
         
     ! Computation of the influence coefficients
     if(CCI .and. DeformMesh .and. bool)then ! Partial computation of the influence coefficients, the mesh is moving and no remeshing.
@@ -547,19 +538,7 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
             call DeplNoeud(Mesh, LTab, borne,Mesh%Nnoeud) ! LTab(j) = false : computation in using CoeffInfl_Line.
             
             
-            
-            !A SUPPRIMER
-            compt = 0
-            do i_test =1, Mesh%Nnoeud
-                if (Ltab(i_test)) then
-                    compt = compt + 1
-                end if
-            end do
-            
-            print *, "Nombre de noeuds fixes : ", compt,"/", Mesh%Nnoeud
-            
-            !------------
-            
+
             ! Filling of BPoint and BFace.
             call ZoneInfl(Mesh, Ltab, borne, BPoint, BFace,Mesh%Nnoeud,Mesh%Nfacette) ! BPoint(j) or BFace(j) = true : computation in using CoeffInfl_Col.
 

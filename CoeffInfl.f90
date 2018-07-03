@@ -48,7 +48,9 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
     type(TFacette)                                      :: Facette                                  ! Panel.
     real(rp)                                            :: Crmax                                    ! Distance criteria for the asymptotic development.
     real(rp),parameter                                  :: inv3 = 0.3333333333333333_rp             ! 1/3.
-                
+            
+    
+
     ! This subroutine was previously used. But it still works.
     ! This subroutine computes the influence coefficients from each node on each panel between the boundaries bornes.
     
@@ -75,6 +77,7 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
     
     !$OMP PARALLEL DO NUM_THREADS(NThreads) SHARED(Mesh,borne,CD,CS,ns,ns1,Ldom) DEFAULT(PRIVATE) SCHEDULE(DYNAMIC,(borne(1,2)-borne(1,1)+1)/Nthreads)
     do j = borne(1,1),borne(1,2) ! 1st node, last node.
+
         
         NDouble = Mesh%Tnoeud(j)%Ndouble ! Number of twin nodes.
         TDouble = Mesh%Tnoeud(j)%double ! Table of twin nodes.

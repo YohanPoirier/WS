@@ -3,6 +3,7 @@ from sys import path
 from WSC_mod import *
 
 
+import VTK
 import pyCUDA_CI as CI
 import pyCUDA_system as py_sys
 import pyCUDA_GMRES as py_GMRES
@@ -14,7 +15,7 @@ import ecriture_data as ec
 
 
 
-bool_cuda = True
+bool_cuda = False
 precision = 2
 N_sym = 1
 N_n_max = 5000
@@ -42,7 +43,10 @@ init_CI_kernel, CI_kernel, angle_solide_kernel = CI.init_CI(precision)
 systeme_kernel = py_sys.init_systeme(precision)
 
 
+N_f, N_n, N_body = api_wsc.import_mesh_dim()
+L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_type = api_wsc.import_mesh(N_f, N_n)
 
+VTK.save_mesh(L_P, L_T, "maillage.vtk")
         
 t1 = time.time()
 
@@ -57,9 +61,7 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
     
     print("Temps ecoule : ", t2-t1)
     
-    
-    if jt == 6 :
-        input()
+
     
     
     # RK4 loop
@@ -87,7 +89,7 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
             api_wsc.api_plots()
 
         # New mesh if necessary
-        if ((jk == 1) and (jt != 1)):
+        if ((jk == 1) and (jt != 1) and parameters.deformmesh == -1):
             # New mesh
             api_wsc.api_regeneration_mesh()
             
@@ -111,15 +113,10 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
         api_wsc.api_bodycondition()
 
         # Calcul des vitesses des noeuds du maillage (updating the velocity of the nodes)
+
         if (parameters.deformmesh == -1): # -1 = True
             api_wsc.api_meshvel()
          
-
-
-
-
-
-        
 
         # Calcul des coefficients d'influence avec GPU
 
@@ -178,15 +175,12 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
             tj = time.time()
             
             
-            print("Temps : ", tb-ta,tc-tb,td-tc,te-td,tf-te,tg-tf,th-tg, ti-th, tj-ti)
+            #print("Temps : ", tb-ta,tc-tb,td-tc,te-td,tf-te,tg-tf,th-tg, ti-th, tj-ti)
         else :
-            
+
             api_wsc.api_solbvp(False)
-            
 
 
-        ## A supprimer
-        
 
 
         
@@ -280,6 +274,7 @@ for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
 
             # Mise a jour de la position des noeuds du maillage a partir de la vitesse des noeuds au temps ti (deformation)
             if (parameters.deformmesh == -1): # -1 = True
+
                 api_wsc.api_remesh()
 
     # Time-stepping

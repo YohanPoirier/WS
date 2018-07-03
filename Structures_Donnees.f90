@@ -470,7 +470,7 @@ subroutine New_InputData(InputData,n,p)
     ! Mesh properties
     allocate(InputData%NphiSphere(n))
     allocate(InputData%dx2(n))
-        
+
     ! Physical properties
     allocate(InputData%Position(3,2,n))
     allocate(InputData%PositionG(3,n))
@@ -489,7 +489,7 @@ subroutine New_InputData(InputData,n,p)
     allocate(InputData%Pressort(3,n))
     allocate(InputData%MuPTO(n))
     allocate(InputData%Cd_Morison(n))
-    
+
     ! Degrees of freedom
     allocate(InputData%ndll(n))
     allocate(InputData%dll_dir(6,n))
@@ -500,7 +500,7 @@ subroutine New_InputData(InputData,n,p)
     allocate(InputData%WCorps(n))
     allocate(InputData%PhiCorps(n))
     allocate(InputData%LambdACorps(n))
-    
+
 end subroutine New_InputData
 
 subroutine Initialization_InputData(InputData)
@@ -585,6 +585,9 @@ subroutine Delete_InputData(InputData)
     deallocate(InputData%is_IBodyA)
     deallocate(InputData%file_inertia)
         
+    ! Wave probes
+    deallocate(InputData%PositionWP)
+    
     ! External loads
     deallocate(InputData%Raideur)
     deallocate(InputData%Lressort)
