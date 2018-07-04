@@ -7,6 +7,15 @@ module API_WSC
     
     implicit none
     
+    ! Parareal
+    
+    !f2py integer*1, dimension(1000)        :: Mesh_ref 
+    type(TMaillage)                         :: Mesh_ref                               ! Maillage de reference (lineaire) pour comparer les différentes itérations
+    !f2py integer*1, dimension(1000)        :: L_Ecoulements 
+    type(T_liste_Ecoulements) :: L_Ecoulements  ! Liste d'ecoulements
+    !f2py integer*1, dimension(1000)        :: L_Bodies
+    type(T_liste_Bodies) :: L_Bodies  ! Liste des corps
+    
     ! Variables of Main (Maillage -> Mesh ; Mesh -> Grid)
     !f2py integer*1, dimension(1000)        :: Mesh
     type(TMaillage)                         :: Mesh                                         ! Final mesh (named Maillage in Main.f90).
@@ -175,34 +184,107 @@ module API_WSC
     end subroutine
     
     
-    ! A SUPPRIMER
-    subroutine import_system(Nn, A_py, B_py)
+    ! Parareal
     
-        integer :: Nn
-        real(rp), dimension(Nn,Nn) :: A_py
-        real(rp), dimension(Nn) :: B_py
-        integer :: i,j
-
-        !f2py intent(in) :: Nn
-        !f2py intent(out) :: A_py, B_py
-
-        print*, allocated(A)
-        print*, allocated(B)
+    subroutine API_parareal_init(fileparam, filegeom, N_iterations, N_ordis)
         
-        print*, shape(A)
-        print*, shape(B)
-        print*, Nn
+        character (len=50),intent(in)           :: fileparam,filegeom   ! Input files
+        integer :: N_iterations, N_ordis
+        integer :: j,k
         
-        do i = 1, Nn
-            B_py(i) = B(i)
+        ! Lecture des fichiers d'entree
+        call API_Execution(fileparam,filegeom)
+        
+        lineaireFS = .True.
+        lineaireBody = .True.
+        
+        ! Construction d'un maillage qui servira de reference dans toute la suite
+        
+        call Generation_Geometry(fgeom_vect,fdomaine,nface,tab2,n_tab2,rep0,InputData,ierror,n_tab)
+        call Generation_Mesh(Mesh_ref,fdomaine,fgeom_vect,nface,Grid,nb_point,nb_tri,ierror,InputData,get_State,tab2,n_tab2,n_tab)
+    
+        ! Initialisation de la liste des ecoulements
+        allocate(L_ecoulements%G(N_iterations+1, N_ordis))
+        allocate(L_ecoulements%lambda(N_iterations+1, N_ordis))
+        allocate(L_ecoulements%F(N_ordis))
+        
+
+        
+        do j = 1, N_iterations+1
+            do k = 1, N_ordis
+                call NewEcoulement(L_ecoulements%G(j,k),Mesh_ref%Nnoeud)
+                call NewEcoulement(L_ecoulements%lambda(j,k),Mesh_ref%Nnoeud)
+            end do
         end do
-        !do i = 1, Nn
-        !    do j = 1, Nn
-        !        A_py(i,j) = 1
-        !    end do
-        !end do
         
-    end subroutine
+        do k = 1, N_ordis
+            call NewEcoulement(L_ecoulements%F(k),Mesh_ref%Nnoeud)
+        end do
+
+        ! Initialisation de la liste des corps
+        allocate(L_bodies%G(N_iterations+1, N_ordis, Mesh_ref%Nbody))
+        allocate(L_bodies%lambda(N_iterations+1, N_ordis, Mesh_ref%Nbody))
+        allocate(L_bodies%F(N_ordis, Mesh_ref%Nbody))
+ 
+    end subroutine API_parareal_init
+    
+    
+    
+    
+    subroutine API_parareal_save_G(i_iter, i_ordi)
+
+        integer :: i_iter, i_ordi
+        
+       ! Copie de l'ecoulement dans la liste        
+        call CopyEcoulement( L_ecoulements%G(i_iter,i_ordi), Ecoulement, Nnodes)
+        
+        ! Copie des corps dans la liste
+        do j = 1, Mesh_ref%Nbody
+            L_bodies%G(i_ordi,j) = Mesh%Body(j)
+        end do
+        
+        
+    end subroutine API_parareal_save_G
+    
+    
+    
+    subroutine API_parareal_save_F(i_ordi)
+        
+        integer :: i_ordi
+        integer :: j
+        
+        ! Interpolation vers le maillage de reference
+        call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)
+        
+       ! Copie de l'ecoulement dans la liste        
+        call CopyEcoulement( L_ecoulements%F(i_ordi), Ecoulement, Nnodes)
+        
+        ! Copie des corps dans la liste
+        do j = 1, Mesh_ref%Nbody
+            L_bodies%F(i_ordi,j) = Mesh%Body(j)
+        end do
+        
+        
+    end subroutine API_parareal_save_F
+    
+    
+    
+    
+    subroutine API_parareal_calcul_lambda(i_iter, i_ordi)
+    
+        integer :: i_iter, i_ordi
+        
+        ! Copy Ecoulement
+        call DelEcoulement(Ecoulement)
+        call NewEcoulement(Ecoulement, Mesh_ref%Nnoeud)
+        call IniEcoulement(Ecoulement, Mesh_ref%Nnoeud, 0._RP) ! %incident and %perturbation are 0.
+        
+      
+
+    end subroutine API_parareal_calcul_lambda
+    
+    
+        
     
     subroutine import_syst(Nn, A_py, B_py)
         
@@ -391,6 +473,10 @@ module API_WSC
             get_State = .false.
         end if
         
+        if (allocated(InputData%free_body)) then
+            call Delete_InputData(InputData)     
+        end if
+        
         ! Execution.
         call Execution(fileparam,filegeom,InputData,get_State)
         
@@ -494,6 +580,8 @@ module API_WSC
         call Initialization_Mesh_Ecoulement(Mesh,Mesh0,Ecoulement,Ecoulement0,t(1),EcoulementDF,InputData)
         
         ! Updating Ecoulement in case of state input file.
+        
+
         if(get_State)then
             if(get_State)then
 				

@@ -3,6 +3,21 @@ use Constantes
 use iso_c_binding
 implicit none
 
+! type liste d'ecoulements (parareal)
+
+type T_liste_ecoulements
+    type(TEcoulement), dimension(:,:), allocatable :: G ! Liste d'ecoulements obtenus pas la methode grossiere
+    type(TEcoulement), dimension(:), allocatable :: F ! Liste d'ecoulements obtenus pas la methode fine
+    type(TEcoulement), dimension(:,:), allocatable :: lambda ! Liste d'ecoulements correspondants aux differents lambda
+end type T_liste_ecoulements
+
+  type T_liste_bodies 
+    type(TBody), dimension(:,:,:), allocatable :: G ! Liste d'ecoulements obtenus pas la methode grossiere
+    type(TBody), dimension(:,:), allocatable :: F ! Liste d'ecoulements obtenus pas la methode fine
+    type(TBody), dimension(:,:,:), allocatable :: lambda ! Liste d'ecoulements correspondants aux differents lambda
+end type T_liste_bodies
+
+
 !	type noeud
 type TNoeud
     real(rp),dimension(3)		:: Pnoeud			! Position des noeuds dans le repère global.

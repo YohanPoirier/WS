@@ -12,32 +12,40 @@ import time
 import ecriture_data as ec
 
 
-for lo in range(1) :
-    
-    
-    if lo == 0 :
-        # Reading the input files
+def calcul(lineairefs, lineairebody, nt, filestate_in = "", filestate_out = "") :
+
+    # Reading the input files
+    if filestate_in == "" :
         api_wsc.api_execution('ws.in','test.geom')
-        parameters.lineairefs = 0
-        parameters.lineairebody = 0
     else :
-        # Reading the input files
-        api_wsc.api_execution('ws.in','test.geom', True, "State_{}.dat".format(parameters.nt))
+        api_wsc.api_execution('ws.in','test.geom', True, filestate_in)
+        
+    if lineairefs :
+        parameters.lineairefs = -1
+    else :
         parameters.lineairefs = 0
+        
+    if lineairebody :
+        parameters.lineairebody = -1
+    else :
         parameters.lineairebody = 0
-    
+        
+    parameters.nt = nt
     
     # Creating the geometry
     api_wsc.api_geometry()
-    
+
     
     # Creating the mesh
     api_wsc.api_mesh()
     
-    
+    N_f, N_n, N_body = api_wsc.import_mesh_dim()
+    L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_type = api_wsc.import_mesh(N_f, N_n)
+
     # Calling all the subroutines which are used before the beginning of the temporal loop.
     api_wsc.pre_temporal_loop()
           
+
     t1 = time.time()
 
     # Temporal loop
@@ -207,11 +215,9 @@ for lo in range(1) :
         # Writting the time info in the command window
         api_wsc.api_writting_time_info(jt)
         
-        
-        if jt == parameters.nt :
-            filename = "State_{}.dat".format(jt)
-            print("Temps", api_wsc.ti)
-            api_wsc.api_write_state(filename,jt)
+
+    if filestate_out != "":
+        api_wsc.api_write_state(filestate_out,jt)
 
     
     # Closing of the output files
@@ -223,5 +229,85 @@ for lo in range(1) :
     t2 = time.time()
     
     print("Temps total : {}".format(t2-t1))
+    
+    
+## Main
 
 
+N_iterations = 3
+
+N_ordis = 10
+
+api_wsc.api_execution('ws.in','test.geom')
+
+pas_ordi = parameters.nt // N_ordis # A affiner
+
+
+api_wsc.api_parareal_init('ws.in','test.geom', N_iterations, N_ordis)
+
+
+
+# Initialisation
+
+for i_ordi in range(N_ordis):
+    
+    if _i_ordi == 0 !
+        filestate_in = ""
+    else:
+        filestate_in = "lambda_{}_{}.dat".format(0, i_ordi)
+    
+    filestate_out = "lambda_{}_{}.dat".format(0, i_ordi+1)
+    
+    api_wsc.calcul(True, True, pas_ordi, filestate_in, filestate_out) 
+    
+    api_wsc.api_parareal_save_G(0, i_ordi)
+    
+# Iterations
+
+for i_iter in range(N_iterations) :
+    
+    # Calcul fin (en parallele)
+    
+    for i_ordi in range(N_ordis) :
+        if _i_ordis == 0 !
+            filestate_in = ""
+        else:
+            filestate_in = "lambda_{}_{}.dat".format(i_iter, i_ordis)
+    
+        filestate_out = ""
+        
+        api_wsc.calcul(False, False, pas_ordi, filestate_in, filestate_out) 
+        
+        api_wsc.api_parareal_save_G(i_iter, i_ordi)
+        
+    # Calcul grossier (en sequentiel)
+    
+    for i_ordi in range(N_ordis):
+        
+        if _i_ordi == 0 !
+            filestate_in = ""
+        else:
+            filestate_in = "lambda_{}_{}.dat".format(i_iter+1, i_ordi)
+        
+        filestate_out = ""
+        
+        api_wsc.calcul(True, True, pas_ordi, filestate_in, filestate_out) 
+        
+        api_wsc.api_parareal_save_G(i_iter+1, i_ordi)
+        
+        api_wsc.api_calcul_lambda(i_iter+1, i_ordi)
+    
+    
+    
+# for lo in range(3) :
+#     
+#     nt = 5
+#     filestate = ""
+#     
+#     if lo > 0 :
+#         filestate = "State_{}.dat".format(nt)
+#     
+#     calcul(True, True, nt, filestate) 
+#     
+# 
+# 
