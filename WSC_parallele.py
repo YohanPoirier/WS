@@ -236,7 +236,7 @@ def calcul(lineairefs, lineairebody, nt, filestate_in = "", filestate_out = "") 
 
 N_iterations = 3
 
-N_ordis = 10
+N_ordis = 3
 
 api_wsc.api_execution('ws.in','test.geom')
 
@@ -251,17 +251,21 @@ api_wsc.api_parareal_init('ws.in','test.geom', N_iterations, N_ordis)
 
 for i_ordi in range(N_ordis):
     
-    if _i_ordi == 0 !
+    if i_ordi == 0 :
         filestate_in = ""
     else:
         filestate_in = "lambda_{}_{}.dat".format(0, i_ordi)
     
     filestate_out = "lambda_{}_{}.dat".format(0, i_ordi+1)
     
-    api_wsc.calcul(True, True, pas_ordi, filestate_in, filestate_out) 
+    calcul(True, True, pas_ordi, filestate_in, filestate_out) 
     
-    api_wsc.api_parareal_save_G(0, i_ordi)
+    api_wsc.api_parareal_save_g(0, i_ordi)
+
     
+print()
+print("Fin de l'init !!! ")
+print()
 # Iterations
 
 for i_iter in range(N_iterations) :
@@ -269,31 +273,31 @@ for i_iter in range(N_iterations) :
     # Calcul fin (en parallele)
     
     for i_ordi in range(N_ordis) :
-        if _i_ordis == 0 !
+        if i_ordi == 0 :
             filestate_in = ""
         else:
-            filestate_in = "lambda_{}_{}.dat".format(i_iter, i_ordis)
+            filestate_in = "lambda_{}_{}.dat".format(i_iter, i_ordi)
     
         filestate_out = ""
         
-        api_wsc.calcul(False, False, pas_ordi, filestate_in, filestate_out) 
+        calcul(False, False, pas_ordi, filestate_in, filestate_out) 
         
-        api_wsc.api_parareal_save_G(i_iter, i_ordi)
+        api_wsc.api_parareal_save_f(i_ordi)
         
     # Calcul grossier (en sequentiel)
     
     for i_ordi in range(N_ordis):
         
-        if _i_ordi == 0 !
+        if i_ordi == 0 :
             filestate_in = ""
         else:
             filestate_in = "lambda_{}_{}.dat".format(i_iter+1, i_ordi)
         
         filestate_out = ""
         
-        api_wsc.calcul(True, True, pas_ordi, filestate_in, filestate_out) 
+        calcul(True, True, pas_ordi, filestate_in, filestate_out) 
         
-        api_wsc.api_parareal_save_G(i_iter+1, i_ordi)
+        api_wsc.api_parareal_save_g(i_iter+1, i_ordi)
         
         api_wsc.api_calcul_lambda(i_iter+1, i_ordi)
     

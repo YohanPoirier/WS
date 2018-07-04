@@ -235,14 +235,17 @@ module API_WSC
 
         integer :: i_iter, i_ordi
         
+        print*, "C'est parti.."
+
        ! Copie de l'ecoulement dans la liste        
-        call CopyEcoulement( L_ecoulements%G(i_iter,i_ordi), Ecoulement, Nnodes)
+        call CopyEcoulement( L_ecoulements%G(i_iter+1,i_ordi+1), Ecoulement, Mesh_ref%Nnoeud)
         
+        print*, "Fail ?"
         ! Copie des corps dans la liste
         do j = 1, Mesh_ref%Nbody
-            L_bodies%G(i_ordi,j) = Mesh%Body(j)
+            L_bodies%G(i_iter+1,i_ordi+1,j) = Mesh%Body(j)
         end do
-        
+        print*, "Non !"
         
     end subroutine API_parareal_save_G
     
@@ -257,11 +260,11 @@ module API_WSC
         call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)
         
        ! Copie de l'ecoulement dans la liste        
-        call CopyEcoulement( L_ecoulements%F(i_ordi), Ecoulement, Nnodes)
+        call CopyEcoulement( L_ecoulements%F(i_ordi+1), Ecoulement, Mesh_ref%Nnoeud)
         
         ! Copie des corps dans la liste
         do j = 1, Mesh_ref%Nbody
-            L_bodies%F(i_ordi,j) = Mesh%Body(j)
+            L_bodies%F(i_ordi+1,j) = Mesh%Body(j)
         end do
         
         
