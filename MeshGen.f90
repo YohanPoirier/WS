@@ -145,12 +145,7 @@ subroutine Generation_Mesh(maillage,fdomaine,fgeom_vect,nface,mesh,nb_point,nb_t
     endif
     99 format('** error #',i3,' : Generation_Mesh')
     
-        write(1111, *) "Blublu : ", n_tab2
-    if (n_tab2 > 0) then
-        
-        write(1111, *) "Blibli : ", tab2(1)%pt%val%coord(1), tab2(1)%pt%val%coord(2), tab2(1)%pt%val%coord(3)
-    end if
-    
+
 end subroutine Generation_Mesh
 
 subroutine verif_surf(Maillage,fgeom_vect)

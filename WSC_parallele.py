@@ -39,8 +39,14 @@ def calcul(lineairefs, lineairebody, nt, io, filestate_in = "", filestate_out = 
     # Creating the mesh
     api_wsc.api_mesh()
     
+    input()
+    
     N_f, N_n, N_body = api_wsc.import_mesh_dim()
-    print("bla : ", N_f, N_n, N_body,"---------------------------------------")
+    print("N_ noeuds = {} , N_facettes = {}, N_body = {} -------------------------".format(N_n, N_f, N_body))
+    
+    
+    
+    
     L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_type = api_wsc.import_mesh(N_f, N_n)
 
 
@@ -64,14 +70,16 @@ def calcul(lineairefs, lineairebody, nt, io, filestate_in = "", filestate_out = 
         N_f, N_n, N_body = api_wsc.import_mesh_dim()
         
         
-
-        
-        print("bla : ", N_f, N_n, N_body,"---------------------------------------")
-        
         t2 = time.time()
+        
+        print()
         print()
         print("pas de temps : {} ({}s) ".format(jt, t2-t1))
         print("Temps : ", api_wsc.ti)
+        print()
+        print()
+        
+        
         
 
         
@@ -79,10 +87,6 @@ def calcul(lineairefs, lineairebody, nt, io, filestate_in = "", filestate_out = 
         for jk in range(1,4+1): # +1 to reach jk = 4
         
         
-            print(parameters.deformmesh)
-            print("*******Debut", jk,jt)
-            input()
-    
             # Computation of the time step of the RK4 step and the current time
             api_wsc.api_time_step_current_time(jt,jk)
 
@@ -119,14 +123,11 @@ def calcul(lineairefs, lineairebody, nt, io, filestate_in = "", filestate_out = 
                 # Zeroing the quantities for the new points
                 api_wsc.api_zeroing_new_points()
             elif(jk != 1):
-                print("Pif")
+                
                 api_wsc.boolremesh = False # 0 = False
     
             
-            print("*******regene", jk,jt)
-            input()
-
-            
+       
             
             # Reinitialisation de Mesh0 et Ecoulement0 avant la resolution de la passe RK1
             if (jk == 1):
@@ -307,12 +308,8 @@ for i_ordi in range(N_ordis):
     
     filestate_out = "lambda_{}_{}.dat".format(0, i_ordi+1)
     
-    #calcul(True, True, pas_ordi, io, filestate_in, filestate_out) 
+    calcul(True, True, pas_ordi, io, filestate_in, filestate_out) 
     
-    ## A SUPPRIMER
-    calcul(False, False, pas_ordi, io, filestate_in, filestate_out)
-    
-    ## 
     api_wsc.api_parareal_save_g(0, i_ordi)
 
     api_wsc.api_close_file_wp(io)
@@ -324,99 +321,65 @@ print("Fin de l'init !!! ")
 print()
 
 
-## A SUPPRIMER
-
-
-i_iter = 0
-i_ordi = 0
-    
-print()
-print()
-print("----Ordinateur n°{}----------".format(i_ordi))
-print()
-print()
-
-    
-filename = "output_WP/WP_F_{}_{}.dat".format(i_iter, i_ordi)
-api_wsc.api_open_file_wp(filename, io)
-
-if i_ordi == 0 :
-    filestate_in = ""
-else:
-    filestate_in = "lambda_{}_{}.dat".format(i_iter, i_ordi)
-
-filestate_out = ""
-
-print("****Calcul")
 input()
-calcul(False, False, pas_ordi, io, filestate_in, filestate_out) 
 
+# Iterations
 
+for i_iter in range(N_iterations) :
+    
+    # Calcul fin (en parallele)
+    
+    for i_ordi in range(N_ordis) :
+        
+        
+        print()
+        print()
+        print("----Ordinateur n°{}----------".format(i_ordi))
+        print()
+        print()
+    
+            
+        filename = "output_WP/WP_F_{}_{}.dat".format(i_iter, i_ordi)
+        api_wsc.api_open_file_wp(filename, io)
+        
+        if i_ordi == 0 :
+            filestate_in = ""
+        else:
+            filestate_in = "lambda_{}_{}.dat".format(i_iter, i_ordi)
+    
+        filestate_out = ""
 
-# api_wsc.api_parareal_save_f(i_ordi)
-# 
-# api_wsc.api_close_file_wp(io)
-#         
-##
+        print("****Calcul")
+        calcul(False, False, pas_ordi, io, filestate_in, filestate_out) 
 
-# # Iterations
-# 
-# for i_iter in range(N_iterations) :
-#     
-#     # Calcul fin (en parallele)
-#     
-#     for i_ordi in range(N_ordis) :
-#         
-#         
-#         print()
-#         print()
-#         print("----Ordinateur n°{}----------".format(i_ordi))
-#         print()
-#         print()
-#     
-#             
-#         filename = "output_WP/WP_F_{}_{}.dat".format(i_iter, i_ordi)
-#         api_wsc.api_open_file_wp(filename, io)
-#         
-#         if i_ordi == 0 :
-#             filestate_in = ""
-#         else:
-#             filestate_in = "lambda_{}_{}.dat".format(i_iter, i_ordi)
-#     
-#         filestate_out = ""
-# 
-#         print("****Calcul")
-#         calcul(False, False, pas_ordi, io, filestate_in, filestate_out) 
-# 
-#         api_wsc.api_parareal_save_f(i_ordi)
-#         
-#         api_wsc.api_close_file_wp(io)
-#         
-#         
-#     # Calcul grossier (en sequentiel)
-#     
-#     for i_ordi in range(N_ordis):
-#         
-#         filename = "output_WP/WP_G_{}_{}.dat".format(i_iter+1, i_ordi)
-#         api_wsc.api_open_file_wp(filename, io)
-#         
-#         if i_ordi == 0 :
-#             filestate_in = ""
-#         else:
-#             filestate_in = "lambda_{}_{}.dat".format(i_iter+1, i_ordi)
-#         
-#         filestate_out = ""
-# 
-#         calcul(True, True, pas_ordi, io, filestate_in, filestate_out) 
-# 
-#         api_wsc.api_parareal_save_g(i_iter+1, i_ordi)
-# 
-#         filestate_out = "lambda_{}_{}.dat".format(i_iter + 1, i_ordi+1)
-#         api_wsc.api_parareal_calcul_lambda(i_iter, i_ordi, 1, filestate_out) #jt = 1 (arbitraire, a verifier)
-#         
-#         api_wsc.api_close_file_wp(io)
-# 
-#     input()
+        api_wsc.api_parareal_save_f(i_ordi)
+        
+        api_wsc.api_close_file_wp(io)
+        
+        
+    # Calcul grossier (en sequentiel)
+    
+    for i_ordi in range(N_ordis):
+        
+        filename = "output_WP/WP_G_{}_{}.dat".format(i_iter+1, i_ordi)
+        api_wsc.api_open_file_wp(filename, io)
+        
+        if i_ordi == 0 :
+            filestate_in = ""
+        else:
+            filestate_in = "lambda_{}_{}.dat".format(i_iter+1, i_ordi)
+        
+        filestate_out = ""
+
+        calcul(True, True, pas_ordi, io, filestate_in, filestate_out) 
+
+        api_wsc.api_parareal_save_g(i_iter+1, i_ordi)
+
+        filestate_out = "lambda_{}_{}.dat".format(i_iter + 1, i_ordi+1)
+        api_wsc.api_parareal_calcul_lambda(i_iter, i_ordi, 1, filestate_out) #jt = 1 (arbitraire, a verifier)
+        
+        api_wsc.api_close_file_wp(io)
+
     
 api_wsc.api_close_file_debug()
     

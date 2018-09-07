@@ -529,7 +529,7 @@ subroutine mesh_polyline2(vertex_start,vertex_end,np,P_loc,rep,dx,mesh,nb_point,
     logical                             :: loop
     
     ! This subroutine creates the mesh of the polylines which are under the sea level in mesh1D.
-    write(1111,*) "Polyline"
+
     ierror = 0
     
     call cart2loc(vertex_start%coord,rep,M1)

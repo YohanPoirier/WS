@@ -40,8 +40,7 @@ contains
     ! iflag = 0 when creating the mesh, 1 in case of remeshing.
     
     npoint = fgeom%npoint
-    
-    write(1111,*) "Mesh0D", npoint
+
     
     do j=1,npoint
         P = fgeom%point(j)
@@ -52,7 +51,7 @@ contains
         ! Wave elevation at the points of the geometry.
         call CEta0(P%coord,t,eta)        
         
-        write(1111,*) eta, P%coord(1), P%coord(2), P%coord(3)
+
         ! Points on the free surface (z = 0).
         call common_int(P%face,P%nface,[HouleRF%index],1,aux,naux,ierror) ! HouleRF%index is fixed equal to 1.
         
@@ -113,18 +112,14 @@ contains
         nPts = 1000*NBodies
         allocate(domaine2%liste(nPts))
     endif     
-    
-    write(1111, *) "Inter : ", n_tab
+
     
     do j=1,n_tab ! Number of intersection curves
         
         ! Getting back the intersection points from tab.
         ndim = 1
         P = tab(j)%pt%val ! First point of the intersection curve
-        
-         write(1111, *) "Inter : ", P%coord(1), P%coord(2), P%coord(3)
-         
-         
+
         domaine2%liste(ndim) = P
         ptr0 => tab(j)%pt
         ptr1 => ptr0
@@ -1746,9 +1741,7 @@ subroutine compute_mesh(maillage,t,fgeom_vect,nface,dx,mesh,nb_point,&
         iflag = 0
     endif
     
-    write(1111,*) "dx2 : ",InputData%dx2
-    write(1111,*) "iflag",iflag
-    
+
     ! Wave elevation of each point
     if(iflag==1)then  
         do j=1,nb_point
