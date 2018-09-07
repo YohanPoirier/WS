@@ -3425,7 +3425,20 @@ subroutine compute_intersection(t,fgeom_vect,tab2,n_tab2,ilink,ierror,InputData,
     endif
     
     if(n_tab.gt.0)then
+    
+    
+           write(1111, *) "Avant : ", n_tab2
+        if (n_tab2 > 0) then
+        
+            write(1111, *) "Avant : ", tab2(1)%pt%val%coord(1), tab2(1)%pt%val%coord(2), tab2(1)%pt%val%coord(3)
+        end if
         call update_point_inter(tab,n_tab,tab2,n_tab2,ierror,InputData,1) ! 1 = NumBody for dx2 (better if changed)
+        
+           write(1111, *) "Après : ", n_tab2
+        if (n_tab2 > 0) then
+        
+            write(1111, *) "Après : ", tab2(1)%pt%val%coord(1), tab2(1)%pt%val%coord(2), tab2(1)%pt%val%coord(3)
+        end if
         if(ierror/=0)then
             ierror = 700
             goto 9999

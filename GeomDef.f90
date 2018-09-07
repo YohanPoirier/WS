@@ -39,6 +39,8 @@ subroutine Generation_Geometry(fgeom_vect,fdomaine,nface,tab2,n_tab2,rep0,InputD
         
     ! This subroutine generates the geometry of both the floater and the domain and the intersection line.
     
+
+    
     if(Mesh_type.eq.2)then ! Method of Camille: floater immerged partially.
         
         ! Allocating of fgeom_vect
@@ -68,7 +70,7 @@ subroutine Generation_Geometry(fgeom_vect,fdomaine,nface,tab2,n_tab2,rep0,InputD
                 call update_geom(rep0,fgeom_vect%geom(jj),InputData%Position(:,2,jj),InputData%Position(:,1,jj))
             end do
         end if
-        
+
         ! Intersection curves
         if(is_body)then
             call compute_intersection(t0,fgeom_vect,tab2,n_tab2,5,ierror,InputData,InputData%dx2(1),n_tab)
@@ -76,6 +78,7 @@ subroutine Generation_Geometry(fgeom_vect,fdomaine,nface,tab2,n_tab2,rep0,InputD
             ierror = 0 ! Initialization of the error flag
             n_tab2 = 0 ! No body, no intersection curve.
         end if
+
         
         ! Flag to know if at least one floater pierces the free surface.
         is_immerged = is_body .and. n_tab2==0
@@ -114,6 +117,9 @@ subroutine Generation_Geometry(fgeom_vect,fdomaine,nface,tab2,n_tab2,rep0,InputD
     ! Flag to known if the free surface mesh needs to be remeshed or not.
     DeformFS    =   not(lineaireFS)     .or.    lineaireFS.and.not(lineaireBody).and. not(is_immerged)
     
+
+
+    
 end subroutine Generation_Geometry
     
     
@@ -138,6 +144,9 @@ subroutine create_geom(geom,nface,nline,iflag,InputData,NumBody)
     !f2py integer*1, dimension(1000)    :: rep
     type(repere3d)                      :: rep          ! Frame of the floater or the tank.
   
+    
+  
+        
     ! This subroutine creates a geometry.
     
     ierror = 0
@@ -232,7 +241,8 @@ subroutine create_geom(geom,nface,nline,iflag,InputData,NumBody)
       if(ierror/=0)then
         write(*,99),ierror,idtype
       endif
-    99 format('** error #',i3,' : type de geometrie ',i3,' non correct')  
+    99 format('** error #',i3,' : type de geometrie ',i3,' non correct') 
+    
 
 end subroutine create_geom
 

@@ -3,6 +3,7 @@ use Houle_RF
 use Constantes
 use FonctionsCommunes
 use iso_c_binding
+use Parameters
 
 implicit none
 
@@ -31,17 +32,19 @@ subroutine Execution(fileparam,filegeom,InputData,get_State)
     
     call date_and_time(date_exec,time_exec) 
     
-    print*,''
-    print*,'------------------------- Prog. Weak Scatterer --------------------'
-    print*,''
-    write(*,*) 'Project Name :'
-    write(*,*) 'User         :'
-    write(*,*) 'Date         :',date_exec(7:8),'/',date_exec(5:6),'/',date_exec(1:4),' ',&
-    &                           time_exec(1:2),':',time_exec(3:4),':',time_exec(5:6)
-    write(*,*) 'exec.   dir. :'
-    write(*,*) 'input dir.   :'
-    write(*,*) 'output dir.  :'
-    write(*,*) ''
+    if (iinfodiv ) then
+        print*,''
+        print*,'------------------------- Prog. Weak Scatterer --------------------'
+        print*,''
+        write(*,*) 'Project Name :'
+        write(*,*) 'User         :'
+        write(*,*) 'Date         :',date_exec(7:8),'/',date_exec(5:6),'/',date_exec(1:4),' ',&
+        &                           time_exec(1:2),':',time_exec(3:4),':',time_exec(5:6)
+        write(*,*) 'exec.   dir. :'
+        write(*,*) 'input dir.   :'
+        write(*,*) 'output dir.  :'
+        write(*,*) ''
+    end if
     
 
     ! Reading NBodies
@@ -154,7 +157,7 @@ subroutine read_input(fileparam,InputData,ierror)
     if(Mesh_type.eq.3)then
         print*,"The weakscatterer code must be called in using Python to use Meshmagick."
     end if
-    if(Mesh_type.ne.1 .or. Mesh_type.ne.2 .or. Mesh_type.ne.3)then
+    if(Mesh_type.ne.1 .and. Mesh_type.ne.2 .and. Mesh_type.ne.3)then
         print*,"This value of Mesh_type is not available."
     end if
     read(ioparam,'(a)',end=1000,err=9999) line    

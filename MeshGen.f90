@@ -34,6 +34,7 @@ subroutine Generation_Mesh(maillage,fdomaine,fgeom_vect,nface,mesh,nb_point,nb_t
     real(rp), dimension(3)                                  :: Origine                  ! Origine of the inertial frame.
     logical                                                 :: get_mesh                 ! Flag to known if there is a mesh input file.
     
+    
     ! This subroutine generates mesh of the domain, the free surface and the floater.
     
     ! Initialization of the final mesh structure
@@ -86,6 +87,9 @@ subroutine Generation_Mesh(maillage,fdomaine,fgeom_vect,nface,mesh,nb_point,nb_t
         
     ! Mesh generation of Camille
     elseif(Mesh_type==2 .and. .not.get_mesh)then
+    
+    
+        print*, "Camilleeeeeeeeeeee"
         
         ! Initilization of the transitional mesh.
         call init_mesh(mesh,nb_point,nb_arete,nb_tri)
@@ -140,6 +144,12 @@ subroutine Generation_Mesh(maillage,fdomaine,fgeom_vect,nface,mesh,nb_point,nb_t
         stop
     endif
     99 format('** error #',i3,' : Generation_Mesh')
+    
+        write(1111, *) "Blublu : ", n_tab2
+    if (n_tab2 > 0) then
+        
+        write(1111, *) "Blibli : ", tab2(1)%pt%val%coord(1), tab2(1)%pt%val%coord(2), tab2(1)%pt%val%coord(3)
+    end if
     
 end subroutine Generation_Mesh
 
@@ -200,21 +210,23 @@ subroutine verif_surf(Maillage,fgeom_vect)
                 FH0 = 2._rp*FH0 
                 FH0(2) = 0._rp
             endif
-        
-            write(*,*) '-------------------------------------------'
-            write(*,*) 'Body: ',nc
-            write(*,*) 'Compute surface from point : S1 = ',S1
-            write(*,*) 'Compute surface from face  : S2 = ',S2    
-            write(*,*) 'Volume = ', FH0(3)
-            write(*,*) 'FH0(1) = ', FH0(1)*ro
-            write(*,*) 'FH0(2) = ', FH0(2)*ro
-            write(*,*) 'FH0(3) = ', FH0(3)*ro
-            write(*,'(a5,3f8.4)') 'Xf = ',Xf
-        
+            
+            if (iinfodiv ) then
+                write(*,*) '-------------------------------------------'
+                write(*,*) 'Body: ',nc
+                write(*,*) 'Compute surface from point : S1 = ',S1
+                write(*,*) 'Compute surface from face  : S2 = ',S2    
+                write(*,*) 'Volume = ', FH0(3)
+                write(*,*) 'FH0(1) = ', FH0(1)*ro
+                write(*,*) 'FH0(2) = ', FH0(2)*ro
+                write(*,*) 'FH0(3) = ', FH0(3)*ro
+                write(*,'(a5,3f8.4)') 'Xf = ',Xf
+                write(*,*) '-------------------------------------------'
+            end if
         end if
         
     end do
-    write(*,*) '-------------------------------------------'
+    
 
 end subroutine verif_surf
 
@@ -251,12 +263,14 @@ subroutine verif_normale(Maillage,fgeom_vect )
             enddo
             dmean = dmean / (n2-n1+1)
         
-            write(*,*) 'Body: ',nc
-            write(*,*) 'Normalisation des vecteurs normaux :'
-            write(*,*) ' dmean = ',dmean
-            write(*,*) ' dmin  = ',dmin
-            write(*,*) ' dmax  = ',dmax
-            write(*,*) '-------------------------------------------'
+            if (iinfodiv) then
+                write(*,*) 'Body: ',nc
+                write(*,*) 'Normalisation des vecteurs normaux :'
+                write(*,*) ' dmean = ',dmean
+                write(*,*) ' dmin  = ',dmin
+                write(*,*) ' dmax  = ',dmax
+                write(*,*) '-------------------------------------------'
+            end if
         end if
         
     end do

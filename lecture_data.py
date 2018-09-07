@@ -39,8 +39,7 @@ def plot_elevation_pert(ax, fichier, ylim):
     ax.legend()
 
     fichier.close()
-    
-    
+
     
     
 # fichier = open("Output_NL/Wave_elevation_ 1.dat","r")

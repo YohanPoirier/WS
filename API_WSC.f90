@@ -186,6 +186,18 @@ module API_WSC
     
     ! Parareal
     
+    
+    subroutine API_open_file_debug()
+        open(unit=1111,file="debug_file.txt",iostat=ios)
+        
+    end subroutine API_open_file_debug
+    
+    subroutine API_close_file_debug()
+        close(unit=1111)
+        
+    end subroutine API_close_file_debug
+        
+    
     subroutine API_parareal_init(fileparam, filegeom, N_iterations, N_ordis)
         
         character (len=50),intent(in)           :: fileparam,filegeom   ! Input files
@@ -200,9 +212,12 @@ module API_WSC
         
         ! Construction d'un maillage qui servira de reference dans toute la suite
         
+     
         call Generation_Geometry(fgeom_vect,fdomaine,nface,tab2,n_tab2,rep0,InputData,ierror,n_tab)
+        
         call Generation_Mesh(Mesh_ref,fdomaine,fgeom_vect,nface,Grid,nb_point,nb_tri,ierror,InputData,get_State,tab2,n_tab2,n_tab)
     
+        
         ! Initialisation de la liste des ecoulements
         allocate(L_ecoulements%G(N_iterations+1, N_ordis))
         allocate(L_ecoulements%lambda(N_iterations+1, N_ordis))
@@ -235,17 +250,17 @@ module API_WSC
 
         integer :: i_iter, i_ordi
         
-        print*, "C'est parti.."
-
+        ! Interpolation vers le maillage de reference
+        call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)! Interpolation vers le maillage de reference
+        
        ! Copie de l'ecoulement dans la liste        
         call CopyEcoulement( L_ecoulements%G(i_iter+1,i_ordi+1), Ecoulement, Mesh_ref%Nnoeud)
-        
-        print*, "Fail ?"
+
         ! Copie des corps dans la liste
         do j = 1, Mesh_ref%Nbody
             L_bodies%G(i_iter+1,i_ordi+1,j) = Mesh%Body(j)
         end do
-        print*, "Non !"
+        
         
     end subroutine API_parareal_save_G
     
@@ -273,21 +288,81 @@ module API_WSC
     
     
     
-    subroutine API_parareal_calcul_lambda(i_iter, i_ordi)
+    subroutine API_parareal_calcul_lambda(i_iter, i_ordi, jt, filestate_out)
     
         integer :: i_iter, i_ordi
+        character(len=50),intent(in) :: filestate_out
+        integer, intent(in) ::jt
         
-        ! Copy Ecoulement
+        ! Ecoulement
         call DelEcoulement(Ecoulement)
         call NewEcoulement(Ecoulement, Mesh_ref%Nnoeud)
-        call IniEcoulement(Ecoulement, Mesh_ref%Nnoeud, 0._RP) ! %incident and %perturbation are 0.
+        call IniEcoulement(Ecoulement, Mesh_ref%Nnoeud, 0._RP)
         
+        ! Phi_p, Eta_p.
+        do j = Mesh_ref%FS%IndFS(1),Mesh_ref%FS%IndFS(3)
+            Ecoulement%Phi(j)%perturbation = L_ecoulements%F(i_ordi+1)%Phi(j)%perturbation &
+            + L_ecoulements%G(i_iter+2, i_ordi+1)%Phi(j)%perturbation &
+            - L_ecoulements%G(i_iter+1, i_ordi+1)%Phi(j)%perturbation
+            
+            Ecoulement%Eta(j)%perturbation = L_ecoulements%F(i_ordi+1)%Eta(j)%perturbation &
+            + L_ecoulements%G(i_iter+2, i_ordi+1)%Eta(j)%perturbation &
+            - L_ecoulements%G(i_iter+1, i_ordi+1)%Eta(j)%perturbation
+        end do
       
+        ! Corps
+        do nc = 1,Mesh%NBody
+            Mesh%Body(nc)%MBody = L_bodies%F(i_ordi+1, nc)%MBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%MBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%MBody
+            Mesh%Body(nc)%CSolv = L_bodies%F(i_ordi+1, nc)%CSolv + L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv -L_bodies%G(i_iter+1, i_ordi+1, nc)%CSolv
+            Mesh%Body(nc)%GBody = L_bodies%F(i_ordi+1, nc)%GBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%GBody
+            Mesh%Body(nc)%VBody = L_bodies%F(i_ordi+1, nc)%VBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%VBody
+        end do
+        
+
+        
+        call Write_State2(Mesh,Ecoulement,ti,jt,Starting_time,jFiltering, filestate_out)
 
     end subroutine API_parareal_calcul_lambda
     
     
-        
+    subroutine API_open_file_WP(filename, io)
+    
+        character (len=50),intent(in)       :: filename         ! Fichier d'ecriture
+        integer, intent(in)                 :: io               ! Indice du fichier ou on ecrit
+
+        open(unit=io,file=filename,iostat=ios)
+        if(ios/=0) stop "Erreur lors de l'ouverture du fichier Wave_elevation"
+        write(io,'(50a)') 'Title = "Wave elevation"'
+        write(io,'(50a)') 'VARIABLES = "t","Eta_Incident","Eta_Perturbation","Eta"'
+    
+    end subroutine
+    
+    
+    
+    
+    
+    subroutine API_write_WP(io, nc)
+    
+        integer, intent(in)                 :: nc               ! Indice de la probe
+        integer, intent(in)                 :: io               ! Indice du fichier ou on ecrit
+    
+        call PlotWaveElevation2(ti,InputData,Mesh,Ecoulement, io, nc)
+    end subroutine
+    
+    
+    
+    
+    subroutine API_close_file_WP(io)
+    
+        integer, intent(in)                 :: io               ! Indice du fichier ou on ecrit
+    
+        close(unit = io)
+
+    end subroutine
+    
+    
+    
+    
     
     subroutine import_syst(Nn, A_py, B_py)
         
@@ -859,6 +934,10 @@ module API_WSC
         character(len=50),intent(in) :: filename
         integer, intent(in) ::jt
         
+        print*,""
+        print*,""
+        print*, "Nombre de noeuds", Mesh%Nnoeud
+        print*,""
         call Write_State2(Mesh,Ecoulement,ti,jt,Starting_time,jFiltering, filename)
         
     end subroutine
@@ -918,7 +997,7 @@ module API_WSC
     subroutine Deallocating_Temporal_Loop()
     
         ! This subroutine deallocates all the variables of the temporal loop.
-        
+
         if(allocated(Phi))           deallocate(Phi)
         if(allocated(CD))            deallocate(CD)
         if(allocated(CS))            deallocate(CS)
@@ -929,7 +1008,7 @@ module API_WSC
         if(allocated(RKVBody))      deallocate(RKVBody)
         if(allocated(IndBody_former))deallocate(IndBody_former)
         if(allocated(time_end))      deallocate(time_end)
-        
+
     end subroutine Deallocating_Temporal_Loop
     
     ! Subroutines of FreeBodyMotion

@@ -12,9 +12,9 @@ type T_liste_ecoulements
 end type T_liste_ecoulements
 
   type T_liste_bodies 
-    type(TBody), dimension(:,:,:), allocatable :: G ! Liste d'ecoulements obtenus pas la methode grossiere
-    type(TBody), dimension(:,:), allocatable :: F ! Liste d'ecoulements obtenus pas la methode fine
-    type(TBody), dimension(:,:,:), allocatable :: lambda ! Liste d'ecoulements correspondants aux differents lambda
+    type(TBody), dimension(:,:,:), allocatable :: G ! Liste de corps obtenus pas la methode grossiere
+    type(TBody), dimension(:,:), allocatable :: F ! Liste de corps obtenus pas la methode fine
+    type(TBody), dimension(:,:,:), allocatable :: lambda ! Liste de corps correspondants aux differents lambda
 end type T_liste_bodies
 
 

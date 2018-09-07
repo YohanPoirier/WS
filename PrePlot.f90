@@ -1197,6 +1197,123 @@ subroutine PlotWaveElevation(t,InputData,Mesh,Ecoulement)
     
 end subroutine PlotWaveElevation
 
+subroutine PlotWaveElevation2(t,InputData,Mesh,Ecoulement, io, nc)
+    
+    integer                             :: nc               ! Indice de la probe
+    integer                             :: io               ! Indice du fichier ou on ecrit
+    real(rp),intent(in)                 :: t                ! Current time.
+    !f2py integer*1, dimension(1000)    :: InputData
+    type(InputDataStruct),intent(in)    :: InputData        ! Input data.
+    !f2py integer*1, dimension(1000)    :: Mesh
+    type(TMaillage)                     :: Mesh             ! Mesh.
+    !f2py integer*1, dimension(1000)    :: Ecoulement
+    type(TECoulement)                   :: Ecoulement       ! Flow parameters.
+        
+    real(rp)                            :: Eta_Incident     ! Incident wave elevation.
+    real(rp)                            :: Eta_Pertubation  ! Perturbation wave elevation.
+    integer                             :: k             ! Loop parameters.
+    real(rp)                            :: dist,PjPk        ! Distances between two points.
+    integer                             :: Na, Nvoisin      ! Spline ordre and number of neighbours.
+    integer                             :: ClosestPoints    ! Closest point of the mesh for the position of a wave probe.
+    real(rp),allocatable                :: Pvoisin(:,:)     ! Position of the neighbours.
+    real(rp),allocatable                :: A(:,:), B(:)     ! Matrix A and vector B for the B-spline problem.
+    integer                             :: info             !
+    character(len=1)                    :: trans            !
+    integer                             :: lda, nrhs        ! Size of the matrix A and number of rhs.
+    integer, allocatable                :: ipiv(:)          !
+        
+    ! This subroutine writes the wave elevation output files.
+    
+    ! Computation of the wave elevations
+
+    ! Eta_Incident.
+    select case(Htype)
+    case(0) ! Still water
+        Eta_Incident = 0._RP
+    case(1) ! Airy waves
+        call Computation_EtaAiry(InputData%PositionWP(1:3,nc),t,Eta_Incident)
+    case(2) ! RF
+        call Computation_EtaRF(InputData%PositionWP(1:3,nc), t,Eta_Incident)
+    end select
+        
+    ! Eta_Perturbation from B-spline interpolation of Ecoulement%Eta_p
+    Eta_Pertubation = 0._RP
+    ClosestPoints = 0
+    dist = 999._RP
+    do k = Mesh%FS%IndFS(1), Mesh%FS%IndFS(3)
+        PjPk = norm2(InputData%PositionWP(1:3,nc)-Mesh%Tnoeud(k)%Pnoeud)
+        if(PjPk .le. dist)then
+            dist = PjPk
+            ClosestPoints = k
+        end if
+    end do
+        
+    if(is_BS)then
+            
+        ! Spline ordre at the closest point of the wave probe.
+        Na = Nordre(Mesh%Tnoeud(ClosestPoints)%Ordre)
+            
+        ! Number of neighbours of the closest point.
+        NVoisin = Mesh%Tnoeud(ClosestPoints)%NVoisin(2)-1 ! -1 because the point itself is counted.
+            
+        ! Allocations
+        allocate(Pvoisin(3,NVoisin+1), B(NVoisin+Na), A(NVoisin+Na,NVoisin+Na))
+                                    
+        ! Pvoisin and B
+        do k=1,NVoisin+1 
+                
+            ! Neighbours of the points.
+            Pvoisin(1:3,k) = Mesh%Tnoeud(abs(Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)))%Pnoeud ! k = 1 is Mesh%Tnoeud(ClosestPoints) itself.
+                
+            if(Mesh%Tnoeud(abs(Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)))%NPanneau.ne.0)then
+                print*,"PlotWaveElevation: Point is not on the FS:"
+                pause
+            end if
+                
+            if (Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1).lt.0) Pvoisin(2,k) = - Pvoisin(2,k)
+            B(k) = Ecoulement%Eta(abs(Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)))%perturbation
+            
+            !print*, k, B(k), Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)
+        end do
+        B(Nvoisin+2:Nvoisin+Na) = 0._RP
+            
+        ! A
+        call SplineMatrix(Nvoisin, Mesh%Tnoeud(ClosestPoints)%Ordre, Pvoisin, A)
+            
+        ! Inversion of the linear system
+        lda = Nvoisin + Na
+        allocate(ipiv(lda))
+        ipiv = 0
+        trans = 'n'
+        nrhs = 1 ! Number of rhs.
+        call dgetrf(lda,lda,A,lda,ipiv,info)
+        if (info.ne.0) then
+            print*,'WARNING Interpolation: info =', info, lda, Mesh%Tnoeud(ClosestPoints)%NVoisin(2), Na
+            print*,Mesh%Tnoeud(ClosestPoints)%TVoisin(1:Mesh%Tnoeud(ClosestPoints)%NVoisin(2),1)
+            pause
+        end if
+        call dgetrs(trans,lda,nrhs,A,lda,ipiv,B,lda,info) ! The B-spline coefficients are in B.
+        deallocate(ipiv)
+            
+        ! Eta_p
+        call SplineF(Nvoisin, Mesh%Tnoeud(ClosestPoints)%Ordre, B(1:Nvoisin+Na), InputData%PositionWP(1:3,nc), Pvoisin, Eta_Pertubation) ! InputData%PositionWP(1:3,nc) is where SplineF is computed.
+            
+        ! Deallocations
+        if(allocated(Pvoisin)) deallocate(Pvoisin)
+        if(allocated(B)) deallocate(B)
+        if(allocated(A)) deallocate(A)
+            
+    else
+        print*,"PlotWaveElevation: interpolation algorithm only works with B-splines."
+        call exit()
+    end if
+        
+    ! Writing.
+    write(io,'(4E)') t,Eta_Incident,Eta_Pertubation,Eta_Incident + Eta_Pertubation
+
+    
+end subroutine PlotWaveElevation2
+
 subroutine Write_Inertia(Mesh,NumBody)
 
     !f2py integer*1, dimension(1000)    :: Mesh

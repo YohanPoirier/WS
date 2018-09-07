@@ -1638,7 +1638,10 @@ subroutine Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_ve
     
     filemaill = 'mesh_'//filename
     
-    if(Mesh_type.eq.2)then ! Mesh strategy of CC.
+    
+
+    
+    if(Mesh_type.eq.2)then ! Mesh strategy of CC.        
         
         ! Updating IndBody_former
         jj = 1
@@ -1737,7 +1740,7 @@ subroutine Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_ve
             
             ! Remeshing.
             
-            print*, RemeshFS
+
             
             if(RemeshFS .or. (not(RemeshFS) .and. is_body))then ! No remeshing at all if no body and no remeshing of the FS.
                 call compute_mesh_fgeom(Mesh,Ecoulement,ti,fgeom_vect,fdomaine,nface,Grid,nb_point,nb_tri,ierror,InputData,nRemesh,boolRemeshFS,tab2,n_tab2,n_tab)
