@@ -1010,6 +1010,7 @@ subroutine update_geom(rep0,fgeom,angle,pos)
    enddo
    
     ! Mise a jour position repere principal.
+
     fgeom%repere%origine = pos
     fgeom%repere%e1 = rep0%e1
     fgeom%repere%e2 = rep0%e2

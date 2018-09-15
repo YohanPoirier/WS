@@ -2520,6 +2520,7 @@ subroutine Partial_initialization(Maillage,InputData)
     
     integer                             :: nc,jj        ! Loop parameters.
     
+
     ! This subroutine initializes partially the physical characteristics of the bodies before calling GeomInit for the first time.
     
     ! A better solution could be found. A second initialization is done in the subroutine Initialisation called just before beginning the temporal loop.

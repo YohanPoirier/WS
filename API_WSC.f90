@@ -175,17 +175,28 @@ module API_WSC
     
     ! Yohan ----------------------------------------
     
+    
+    subroutine print_file(text, io)
+        character (len=50),intent(in) :: text
+        integer :: io
+        
+        write(io,*) text
+        
+    end subroutine print_file
+        
+        
+        
+        
     subroutine import_temp(temp_py)
         real(rp), dimension(4,5000) :: temp_py
         !f2py intent(out) :: temp_py
         
         temp_py = temp_fort
         
-    end subroutine
+    end subroutine import_temp
     
     
     ! Parareal
-    
     
     subroutine API_open_file_debug()
         open(unit=1111,file="debug_file.txt",iostat=ios)
@@ -206,6 +217,7 @@ module API_WSC
         
         ! Lecture des fichiers d'entree
         call API_Execution(fileparam,filegeom)
+        close(ioIntersection)
         
         lineaireFS = .True.
         lineaireBody = .True.
@@ -252,6 +264,9 @@ module API_WSC
         
         ! Interpolation vers le maillage de reference
         call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)! Interpolation vers le maillage de reference
+        write(1111,*) "Save G"
+        write(1111,*) Mesh%Nnoeud
+        write(1111,*) Mesh_ref%Nnoeud
         
        ! Copie de l'ecoulement dans la liste        
         call CopyEcoulement( L_ecoulements%G(i_iter+1,i_ordi+1), Ecoulement, Mesh_ref%Nnoeud)
@@ -273,6 +288,9 @@ module API_WSC
         
         ! Interpolation vers le maillage de reference
         call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)
+        write(1111,*) "Save F"
+        write(1111,*) Mesh%Nnoeud
+        write(1111,*) Mesh_ref%Nnoeud
         
        ! Copie de l'ecoulement dans la liste        
         call CopyEcoulement( L_ecoulements%F(i_ordi+1), Ecoulement, Mesh_ref%Nnoeud)
@@ -311,18 +329,33 @@ module API_WSC
         end do
       
         ! Corps
-        do nc = 1,Mesh%NBody
-            Mesh%Body(nc)%MBody = L_bodies%F(i_ordi+1, nc)%MBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%MBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%MBody
-            Mesh%Body(nc)%CSolv = L_bodies%F(i_ordi+1, nc)%CSolv + L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv -L_bodies%G(i_iter+1, i_ordi+1, nc)%CSolv
-            Mesh%Body(nc)%GBody = L_bodies%F(i_ordi+1, nc)%GBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%GBody
-            Mesh%Body(nc)%VBody = L_bodies%F(i_ordi+1, nc)%VBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%VBody
+        do nc = 1,Mesh_ref%NBody
+            Mesh_ref%Body(nc)%MBody = L_bodies%F(i_ordi+1, nc)%MBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%MBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%MBody
+            Mesh_ref%Body(nc)%CSolv = L_bodies%F(i_ordi+1, nc)%CSolv + L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv -L_bodies%G(i_iter+1, i_ordi+1, nc)%CSolv
+            Mesh_ref%Body(nc)%GBody = L_bodies%F(i_ordi+1, nc)%GBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%GBody
+            Mesh_ref%Body(nc)%VBody = L_bodies%F(i_ordi+1, nc)%VBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%VBody
         end do
         
-
-        
-        call Write_State2(Mesh,Ecoulement,ti,jt,Starting_time,jFiltering, filestate_out)
+        call Write_State2(Mesh_ref,Ecoulement,ti,jt,Starting_time,jFiltering, filestate_out)
 
     end subroutine API_parareal_calcul_lambda
+    
+    
+    
+    
+    
+    subroutine API_Write_State_with_interpolation(filename, jt)
+    
+        character(len=50),intent(in) :: filename
+        integer, intent(in) ::jt
+
+        
+        call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)
+        call Write_State2(Mesh_ref,Ecoulement,ti,jt,Starting_time,jFiltering, filename)
+        
+    end subroutine
+    
+    
     
     
     subroutine API_open_file_WP(filename, io)
@@ -542,6 +575,7 @@ module API_WSC
         character(len=50),intent(in),optional   :: fileState_in         ! State input file.
                         
         ! This subroutine wraps the subroutine Execution.
+
         
         ! get_State.
         if(present(get_State_in))then
@@ -558,6 +592,8 @@ module API_WSC
         ! Execution.
         call Execution(fileparam,filegeom,InputData,get_State)
         
+
+        
         ! Updating InputData in case of state input file.
 
         if(get_State)then
@@ -566,6 +602,7 @@ module API_WSC
             ti = t0
             t_tmp = t0 ! Back-up t0 of *.in.
         end if
+
 
         
     end subroutine API_Execution
@@ -673,6 +710,9 @@ module API_WSC
                 
                 ! Interpolation of Phi_p and Eta_p from the Mesh_State.
                 call Interpolation_FS(Mesh_State,Mesh,Ecoulement_State,t(1),.true.,ierror) ! True because there is a FS remeshing, therefore an interpolation.
+                write(1111,*) "Pretemporal"
+                write(1111,*) Mesh_State%Nnoeud
+                write(1111,*) Mesh%Nnoeud
                 
                 ! Initilization of Ecoulement from Ecoulement_State.
                 call CopyEcoulement(Ecoulement, Ecoulement_State, Mesh%Nnoeud)
@@ -941,6 +981,7 @@ module API_WSC
         call Write_State2(Mesh,Ecoulement,ti,jt,Starting_time,jFiltering, filename)
         
     end subroutine
+    
     
     subroutine API_Zeroing_new_points()
     

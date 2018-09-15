@@ -39,13 +39,13 @@
     Use BSpline interpolation for curvature     :   BSpline         :   T
     Spline order                                :   SPlineOrder     :   3
     Dot product normals intersections		:   DPNormals	    :   0.5
-    Force linear approach on the Free-Surface   :   LineaireFS      :   F
-    Force linear approach on the Body           :   LineaireBody    :   F
+    Force linear approach on the Free-Surface   :   LineaireFS      :   T
+    Force linear approach on the Body           :   LineaireBody    :   T
     Frozen Runge Kutta                          :   RK_figee        :   F
     Latching Method				:   is_latching	    :	F
     Starting time                               :   t0              :   0.
-    Time step                                   :   dt              :   0.01
-    Number of time step                         :   nt              :   4   
+    Time step                                   :   dt              :   0.0005
+    Number of time step                         :   nt              :   8000   
     Time instant for initial ramp               :   [T1,T2]         :   [0. 1.]
     Starting time for output                    :   Tout            :   0.
     Time step for output                        :   nout            :   1

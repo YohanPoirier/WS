@@ -281,8 +281,10 @@ subroutine close_output(time,NBody)
     if(iwsize)         close(iosize)
     if(iwmonitor)      close(iomonitor)
     if(iwmass)         close(iomass)
-    if(iwIntersection) close(ioIntersection)
-        
+    if(iwIntersection) then
+     write(1111,*) "close"
+     close(ioIntersection)
+     end if   
     
     if(iwwave)then
         do nc = 1,nWP

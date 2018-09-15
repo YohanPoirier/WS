@@ -96,6 +96,7 @@ integer                             :: Tcase                        ! Choix de C
 
 integer                             :: iinfodiv = 0                 ! Pour enelever plein de sorties
 integer                             :: iprint                       ! Sortie Ecran (O/N)
+
 integer                             :: idebug                       ! Information de debugage (O/N)
 integer                             :: iwbound                      ! Sortie geometrie des frontières (O/N)
 integer                             :: iwfront                      ! Sortie tableau du front de la méthode frontale (O/N)

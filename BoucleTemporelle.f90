@@ -151,7 +151,12 @@ subroutine BoucleTemporelle_RK4(Mesh, fgeom_vect, fdomaine, nface, Grid, nb_poin
 		end if
         
         ! Interpolation of Phi_p and Eta_p from the Mesh_State.
+        
+        
         call Interpolation_FS(Mesh_State,Mesh,Ecoulement_State,t(1),.true.,ierror) ! True because there is a FS remeshing, therefore an interpolation.
+        write(1111,*) "RK4"
+        write(1111,*) Mesh_State%Nnoeud
+        write(1111,*) Mesh%Nnoeud
         
         ! Initilization of Ecoulement from Ecoulement_State.
         call CopyEcoulement(Ecoulement, Ecoulement_State, Mesh%Nnoeud)
@@ -704,6 +709,8 @@ subroutine Initialisation(Ecoulement, Mesh, t,InputData)
     !endif
     get_flow = .false. ! This command is totaly desactivated.
     
+
+    
     if(get_flow)then
         call extract_ecoulement(Ecoulement, tstart, fileflow, ierror)
         print*,' Initialisation flow at t = ',tstart,' : ',fileflow
@@ -716,7 +723,7 @@ subroutine Initialisation(Ecoulement, Mesh, t,InputData)
         ! Initialisation des position, vitesse et accélération du corps
         jj = 1
         do nc = Int_Body,Mesh%NBody
-            
+
             ! Positions.
             if(iFixPoint)then
                 ! Motion equation solved at A fixed in the inertial frame (Csolv = (FixPointPos,angles)).

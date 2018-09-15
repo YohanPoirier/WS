@@ -1718,13 +1718,20 @@ subroutine compute_mesh(maillage,t,fgeom_vect,nface,dx,mesh,nb_point,&
     type(chaine_point_pt),dimension(:),intent(in),optional  :: tab2                     ! Table of the pointers toward the intersection points.
     integer,intent(inout),optional                          :: n_tab2,n_tab             ! Number of intersection curves and lines.
     
-    integer                                                 :: j, iflag,jj              ! Loop parameters.
+    integer                                                 :: j, iflag,jj,kk              ! Loop parameters.
     type(point)                                             :: P                        ! Point.
     real(rp)                                                :: eta                      ! Wave elevation.
     integer                                                 :: ios                      ! Output parameter.
     real(rp)                                                :: tin                      ! Plotting time for Advance_front.dat.
         
     ! This subroutine creates the mesh with the mesh strategy of CC.
+    
+    
+
+
+    
+    
+
     
     print*,"compute_mesh: Optimal point is searched with dx2 of the first floater."
     ierror = 0
@@ -2511,6 +2518,9 @@ subroutine compute_mesh_fgeom(Maillage,Ecoulement,t,fgeom_vect,fdomaine,nface,me
     
     ! Creation of the new structure Ecoulement (good size) (even without FS remeshing!) and interpolation of Phi_p and Eta_p between the old mesh and the new one.
     call Interpolation_FS(Maillage,MaillageTemp,Ecoulement,t,LocalRemeshFS,ierror)
+    write(1111,*) "con pute"
+    write(1111,*) Maillage%Nnoeud
+    write(1111,*) MaillageTemp%Nnoeud
     
     ! Old TMaillage -> New TMaillage   
     call DelMaillage(Maillage)

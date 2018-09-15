@@ -63,9 +63,10 @@ subroutine Execution(fileparam,filegeom,InputData,get_State)
     ! Reading of the input file *.in.
     call read_input(fileparam,InputData,ierror)
             
+
     ! Reading of the input file *.geom.
     call read_geom(filegeom,InputData)
-    
+
     ! Extra parameters.
     call Define_Extra_Data()
     
@@ -84,6 +85,8 @@ subroutine Execution(fileparam,filegeom,InputData,get_State)
     if(ierror/=0)then
         write(*,99),ierror
     endif
+
+    
 99  format('** error #',i3,' : Main')
     
 end subroutine Execution
@@ -122,9 +125,12 @@ subroutine read_input(fileparam,InputData,ierror)
     read(ioparam,'(a)',end=1000,err=9999) line
     ! INCIDENT WAVE
     call read_param(ioparam,Htype)
+    
     if(Htype.eq.2)then
         print*,"Water depth for the RF wave (input parameter: prof) must match with the water depth given when running waverf.exe."
     end if
+
+    
     call read_param(ioparam,profondeur)    
     read(ioparam,'(a)',end=1000,err=9999) line
     call read_param(ioparam,NHoule)
@@ -132,7 +138,9 @@ subroutine read_input(fileparam,InputData,ierror)
     call read_param(ioparam,w,NHoule)
     call read_param(ioparam,Aphi,NHoule)
     call read_param(ioparam,PhiWave,NHoule)
+
     print*,"The modification of the phase of the incident wave is only for the Airy waves."
+
     read(ioparam,'(a)',end=1000,err=9999) line
     call read_param(ioparam,filecoeff)
     call read_param(ioparam,DirectionRF)
@@ -506,6 +514,8 @@ subroutine read_geom(filegeom,InputData)
         if(InputData%igtype(nc) == 5 .and. idref.eq.2)then
             print*,"Lgeom_2 needs to be filled in case of idref = 2 (linear approximation for the panel size)."
         end if
+        
+        
         call read_param(iogeom,InputData%Position(1:3,1,nc),3)
         call read_param(iogeom,InputData%Position(1:3,2,nc),3) ! Degrees
         
@@ -1112,13 +1122,19 @@ subroutine Opening_Intersection(get_State)
     ! This subroutine opens the output file Intersection_curves.dat.
     
     ! Opening
+    write(1111,*) "On ouvre"
     if(not(get_State))then
+        write(1111,*) "1"
         open(unit=ioIntersection,file='Intersection_curves.dat')
         write(ioIntersection,*) 'Title = "Intersection curves between the floaters and the free surface"'
         write(ioIntersection,*) 'VARIABLES = "X","Y","Z","Nedge","E1","E2","E3","E4","E5"'
     else
+    write(1111,*) "2"
         open(unit=ioIntersection,file='Intersection_curves.dat',Access = 'append',Status='old', iostat=ios)
-        if (ios/=0) stop "Error at the opening of the intersection output file."
+        if (ios/=0) then
+            write(1111,*) ios
+            stop "Error at the opening of the intersection output file."
+        end if
     end if
     
 end subroutine Opening_Intersection

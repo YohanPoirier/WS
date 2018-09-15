@@ -65,9 +65,12 @@ subroutine Generation_Geometry(fgeom_vect,fdomaine,nface,tab2,n_tab2,rep0,InputD
         if(is_body)then
             do jj = 1,NBodies
                 nface_old = nface ! Saving the previous value of nface.
+
                 call create_geom(fgeom_vect%geom(jj),nface,nline,1,InputData,jj)
+
                 fgeom_vect%nface_vect(jj+1) = nface - nface_old ! Number of faces for this geometry.
                 call update_geom(rep0,fgeom_vect%geom(jj),InputData%Position(:,2,jj),InputData%Position(:,1,jj))
+
             end do
         end if
 
@@ -117,7 +120,6 @@ subroutine Generation_Geometry(fgeom_vect,fdomaine,nface,tab2,n_tab2,rep0,InputD
     ! Flag to known if the free surface mesh needs to be remeshed or not.
     DeformFS    =   not(lineaireFS)     .or.    lineaireFS.and.not(lineaireBody).and. not(is_immerged)
     
-
 
     
 end subroutine Generation_Geometry
