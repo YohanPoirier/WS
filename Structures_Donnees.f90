@@ -11,7 +11,13 @@ type T_liste_ecoulements
     type(TEcoulement), dimension(:,:), allocatable :: lambda ! Liste d'ecoulements correspondants aux differents lambda
 end type T_liste_ecoulements
 
-  type T_liste_bodies 
+type T_liste_maillages
+    type(TMaillage), dimension(:,:), allocatable :: G ! Liste des maillages obtenus pas la methode grossiere
+    type(TMaillage), dimension(:), allocatable :: F ! Liste des maillages obtenus pas la methode fine
+end type T_liste_maillages
+
+
+type T_liste_bodies 
     type(TBody), dimension(:,:,:), allocatable :: G ! Liste de corps obtenus pas la methode grossiere
     type(TBody), dimension(:,:), allocatable :: F ! Liste de corps obtenus pas la methode fine
     type(TBody), dimension(:,:,:), allocatable :: lambda ! Liste de corps correspondants aux differents lambda
@@ -241,7 +247,7 @@ subroutine CopyMaillage(Maillage2, Maillage1)
     integer                             :: k                    ! Loop parameter.
     
     ! This subroutine copies a structure TMaillage (1) into a new structure TMaillage (2).
-    
+ 
     Maillage2%Origine = Maillage1%Origine
     Maillage2%Nnoeud = Maillage1%Nnoeud
     Maillage2%Nfacette = Maillage1%Nfacette
@@ -250,16 +256,20 @@ subroutine CopyMaillage(Maillage2, Maillage1)
     Maillage2%Nfsys = Maillage1%Nfsys
     Maillage2%TypeM = Maillage1%TypeM
     Maillage2%DimTank = Maillage1%DimTank
+
     do k=1,Maillage1%Nnoeud
         Maillage2%Tnoeud(k) = Maillage1%Tnoeud(k)
     end do
+
     do k=1,Maillage1%Nfacette
         Maillage2%Tfacette(k) = Maillage1%Tfacette(k)
     end do
+
     do k=1,Maillage1%NBody
         Maillage2%Body(k) = Maillage1%Body(k)
     enddo
     Maillage2%FS = Maillage1%FS
+    
 
     return
     

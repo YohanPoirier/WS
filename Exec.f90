@@ -1122,17 +1122,16 @@ subroutine Opening_Intersection(get_State)
     ! This subroutine opens the output file Intersection_curves.dat.
     
     ! Opening
-    write(1111,*) "On ouvre"
+
     if(not(get_State))then
-        write(1111,*) "1"
+
         open(unit=ioIntersection,file='Intersection_curves.dat')
         write(ioIntersection,*) 'Title = "Intersection curves between the floaters and the free surface"'
         write(ioIntersection,*) 'VARIABLES = "X","Y","Z","Nedge","E1","E2","E3","E4","E5"'
     else
-    write(1111,*) "2"
+
         open(unit=ioIntersection,file='Intersection_curves.dat',Access = 'append',Status='old', iostat=ios)
         if (ios/=0) then
-            write(1111,*) ios
             stop "Error at the opening of the intersection output file."
         end if
     end if

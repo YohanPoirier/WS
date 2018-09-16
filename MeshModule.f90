@@ -2518,10 +2518,7 @@ subroutine compute_mesh_fgeom(Maillage,Ecoulement,t,fgeom_vect,fdomaine,nface,me
     
     ! Creation of the new structure Ecoulement (good size) (even without FS remeshing!) and interpolation of Phi_p and Eta_p between the old mesh and the new one.
     call Interpolation_FS(Maillage,MaillageTemp,Ecoulement,t,LocalRemeshFS,ierror)
-    write(1111,*) "con pute"
-    write(1111,*) Maillage%Nnoeud
-    write(1111,*) MaillageTemp%Nnoeud
-    
+
     ! Old TMaillage -> New TMaillage   
     call DelMaillage(Maillage)
     call NewMaillage(Maillage,MaillageTemp%Nnoeud,NBodies+1) ! +1 for the tank.

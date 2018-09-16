@@ -44,8 +44,8 @@
     Frozen Runge Kutta                          :   RK_figee        :   F
     Latching Method				:   is_latching	    :	F
     Starting time                               :   t0              :   0.
-    Time step                                   :   dt              :   0.0005
-    Number of time step                         :   nt              :   8000   
+    Time step                                   :   dt              :   0.002
+    Number of time step                         :   nt              :   1000  
     Time instant for initial ramp               :   [T1,T2]         :   [0. 1.]
     Starting time for output                    :   Tout            :   0.
     Time step for output                        :   nout            :   1

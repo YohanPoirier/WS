@@ -20,10 +20,6 @@ def calcul(lineairefs, lineairebody, nt, io, filestate_in = "", filestate_out = 
         api_wsc.api_execution('ws.in','test.geom')
     else :
         api_wsc.api_execution('ws.in','test.geom', True, filestate_in)
-        
-        
-    
-    
     
         
     if lineairefs :
@@ -45,6 +41,8 @@ def calcul(lineairefs, lineairebody, nt, io, filestate_in = "", filestate_out = 
     
     # Creating the mesh
     api_wsc.api_mesh()
+    
+    
 
     # N_f, N_n, N_body = api_wsc.import_mesh_dim()
     # 
@@ -257,7 +255,7 @@ def calcul(lineairefs, lineairebody, nt, io, filestate_in = "", filestate_out = 
     t2 = time.time()
     
     print("Temps total : {}".format(t2-t1))
-    
+
     
 ## Main
 
@@ -268,7 +266,7 @@ api_wsc.api_open_file_debug()
 
 N_iterations = 10
 
-N_ordis = 10
+N_ordis = 3
 
 io = 7988
 
@@ -282,10 +280,10 @@ api_wsc.api_parareal_init('ws.in','test.geom', N_iterations, N_ordis)
 pas_ordi = parameters.nt // N_ordis # A affiner
 
 
-  
-## TEST (a supprimer)
 
-for i_ordi in range(6):
+# Initialisation
+
+for i_ordi in range(N_ordis):
     
 
     api_wsc.print_file("", 1111)
@@ -295,7 +293,7 @@ for i_ordi in range(6):
     api_wsc.print_file("", 1111)
 
 
-    filename = "output_WP/WP_F_{}_{}.dat".format(0, i_ordi)
+    filename = "output_WP/WP_G_{}_{}.dat".format(0, i_ordi)
     api_wsc.api_open_file_wp(filename, io)
         
         
@@ -306,65 +304,23 @@ for i_ordi in range(6):
     
     filestate_out = "output_WP/lambda_{}_{}.dat".format(0, i_ordi+1)
     
-    calcul(False, False, pas_ordi, io, filestate_in, filestate_out) 
+    calcul(True, True, pas_ordi, io, filestate_in, filestate_out) 
     
-    api_wsc.api_parareal_save_f(i_ordi)
+
+    api_wsc.api_parareal_save_g(0, i_ordi)
+    
 
     api_wsc.api_close_file_wp(io)
- 
+    
+
     
 api_wsc.print_file("", 1111)
 api_wsc.print_file("----------------------------------------------------------------", 1111)
 api_wsc.print_file("Fin de la simulation", 1111)
 api_wsc.print_file("----------------------------------------------------------------", 1111)
 api_wsc.print_file("", 1111)
-exit()
-
-# 
-# # Initialisation
-# 
-# for i_ordi in range(N_ordis):
-#     
-# 
-#     api_wsc.print_file("", 1111)
-#     api_wsc.print_file("----------------------------------------------------------------", 1111)
-#     api_wsc.print_file("Initialisation, Ordinateur n {}".format( i_ordi + 1), 1111)
-#     api_wsc.print_file("----------------------------------------------------------------", 1111)
-#     api_wsc.print_file("", 1111)
-# 
-# 
-#     filename = "output_WP/WP_G_{}_{}.dat".format(0, i_ordi)
-#     api_wsc.api_open_file_wp(filename, io)
-#         
-#         
-#     if i_ordi == 0 :
-#         filestate_in = ""
-#     else:
-#         filestate_in = "output_WP/lambda_{}_{}.dat".format(0, i_ordi)
-#     
-#     filestate_out = "output_WP/lambda_{}_{}.dat".format(0, i_ordi+1)
-#     
-#     calcul(True, True, pas_ordi, io, filestate_in, filestate_out) 
-#     
-#     api_wsc.api_parareal_save_g(0, i_ordi)
-# 
-#     api_wsc.api_close_file_wp(io)
-#     
-#     
-# api_wsc.print_file("", 1111)
-# api_wsc.print_file("----------------------------------------------------------------", 1111)
-# api_wsc.print_file("Fin de la simulation", 1111)
-# api_wsc.print_file("----------------------------------------------------------------", 1111)
-# api_wsc.print_file("", 1111)
-# 
-# 
-# input()
 
 
-
-# SUPPRIMER
-N_iterations = 1
-N_ordis = 6
 
 
 # Iterations
@@ -373,8 +329,6 @@ for i_iter in range(N_iterations) :
     
     # Calcul fin (en parallele)
     
-
-
 
     for i_ordi in range(N_ordis) :
         
@@ -422,8 +376,7 @@ for i_iter in range(N_iterations) :
         api_wsc.api_parareal_save_g(i_iter+1, i_ordi)
 
         filestate_out = "output_WP/lambda_{}_{}.dat".format(i_iter + 1, i_ordi+1)
-        
-        
+
         api_wsc.api_parareal_calcul_lambda(i_iter, i_ordi, 1, filestate_out) #jt = 1 (arbitraire, a verifier)
         
         api_wsc.api_close_file_wp(io)

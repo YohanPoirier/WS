@@ -154,10 +154,7 @@ subroutine BoucleTemporelle_RK4(Mesh, fgeom_vect, fdomaine, nface, Grid, nb_poin
         
         
         call Interpolation_FS(Mesh_State,Mesh,Ecoulement_State,t(1),.true.,ierror) ! True because there is a FS remeshing, therefore an interpolation.
-        write(1111,*) "RK4"
-        write(1111,*) Mesh_State%Nnoeud
-        write(1111,*) Mesh%Nnoeud
-        
+
         ! Initilization of Ecoulement from Ecoulement_State.
         call CopyEcoulement(Ecoulement, Ecoulement_State, Mesh%Nnoeud)
         

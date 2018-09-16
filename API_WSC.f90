@@ -9,8 +9,8 @@ module API_WSC
     
     ! Parareal
     
-    !f2py integer*1, dimension(1000)        :: Mesh_ref 
-    type(TMaillage)                         :: Mesh_ref                               ! Maillage de reference (lineaire) pour comparer les différentes itérations
+    !f2py integer*1, dimension(1000)        :: L_maillages
+    type(T_liste_Maillages)                 :: L_maillages                                   ! Maillage des simulations fines
     !f2py integer*1, dimension(1000)        :: L_Ecoulements 
     type(T_liste_Ecoulements) :: L_Ecoulements  ! Liste d'ecoulements
     !f2py integer*1, dimension(1000)        :: L_Bodies
@@ -218,40 +218,43 @@ module API_WSC
         ! Lecture des fichiers d'entree
         call API_Execution(fileparam,filegeom)
         close(ioIntersection)
+
+        ! Initialisation de la liste des maillages
+        allocate(L_maillages%G(N_iterations+1, N_ordis))
+        allocate(L_maillages%F(N_ordis))
         
-        lineaireFS = .True.
-        lineaireBody = .True.
         
-        ! Construction d'un maillage qui servira de reference dans toute la suite
+        do j = 1, N_iterations+1
+            do k = 1, N_ordis
+                call NewMaillage(L_maillages%G(j,k),1,1)
+            end do
+        end do
         
-     
-        call Generation_Geometry(fgeom_vect,fdomaine,nface,tab2,n_tab2,rep0,InputData,ierror,n_tab)
-        
-        call Generation_Mesh(Mesh_ref,fdomaine,fgeom_vect,nface,Grid,nb_point,nb_tri,ierror,InputData,get_State,tab2,n_tab2,n_tab)
-    
+        do k = 1, N_ordis
+            call NewMaillage(L_maillages%F(k),1,1)
+        end do
         
         ! Initialisation de la liste des ecoulements
         allocate(L_ecoulements%G(N_iterations+1, N_ordis))
         allocate(L_ecoulements%lambda(N_iterations+1, N_ordis))
         allocate(L_ecoulements%F(N_ordis))
         
-
         
         do j = 1, N_iterations+1
             do k = 1, N_ordis
-                call NewEcoulement(L_ecoulements%G(j,k),Mesh_ref%Nnoeud)
-                call NewEcoulement(L_ecoulements%lambda(j,k),Mesh_ref%Nnoeud)
+                call NewEcoulement(L_ecoulements%G(j,k),1)
+                call NewEcoulement(L_ecoulements%lambda(j,k),1)
             end do
         end do
         
         do k = 1, N_ordis
-            call NewEcoulement(L_ecoulements%F(k),Mesh_ref%Nnoeud)
+            call NewEcoulement(L_ecoulements%F(k),1)
         end do
 
         ! Initialisation de la liste des corps
-        allocate(L_bodies%G(N_iterations+1, N_ordis, Mesh_ref%Nbody))
-        allocate(L_bodies%lambda(N_iterations+1, N_ordis, Mesh_ref%Nbody))
-        allocate(L_bodies%F(N_ordis, Mesh_ref%Nbody))
+        allocate(L_bodies%G(N_iterations+1, N_ordis, Nbodies+1))
+        allocate(L_bodies%lambda(N_iterations+1, N_ordis, Nbodies+1))
+        allocate(L_bodies%F(N_ordis, Nbodies+1))
  
     end subroutine API_parareal_init
     
@@ -262,18 +265,21 @@ module API_WSC
 
         integer :: i_iter, i_ordi
         
-        ! Interpolation vers le maillage de reference
-        call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)! Interpolation vers le maillage de reference
-        write(1111,*) "Save G"
-        write(1111,*) Mesh%Nnoeud
-        write(1111,*) Mesh_ref%Nnoeud
-        
-       ! Copie de l'ecoulement dans la liste        
-        call CopyEcoulement( L_ecoulements%G(i_iter+1,i_ordi+1), Ecoulement, Mesh_ref%Nnoeud)
+        ! Sauvegarde de l'ecoulement
+        call DelEcoulement(L_ecoulements%G(i_iter+1, i_ordi+1))
+        call NewEcoulement(L_ecoulements%G(i_iter+1, i_ordi+1), Mesh%Nnoeud)
+        call CopyEcoulement( L_ecoulements%G(i_iter+1, i_ordi+1), Ecoulement, Mesh%Nnoeud)
 
-        ! Copie des corps dans la liste
-        do j = 1, Mesh_ref%Nbody
-            L_bodies%G(i_iter+1,i_ordi+1,j) = Mesh%Body(j)
+        
+        ! Sauvegarde du maillage
+        call DelMaillage(L_maillages%G(i_iter+1,i_ordi+1))
+        call NewMaillage(L_maillages%G(i_iter+1,i_ordi+1), Mesh%Nnoeud, NBodies+1)
+        call CopyMaillage(L_maillages%G(i_iter+1, i_ordi+1), Mesh)
+
+        ! Sauvegarde des corps
+
+        do j = 1, NBodies+1
+            L_bodies%G(i_iter+1, i_ordi+1,j) = Mesh%Body(j)
         end do
         
         
@@ -286,17 +292,21 @@ module API_WSC
         integer :: i_ordi
         integer :: j
         
-        ! Interpolation vers le maillage de reference
-        call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)
-        write(1111,*) "Save F"
-        write(1111,*) Mesh%Nnoeud
-        write(1111,*) Mesh_ref%Nnoeud
         
-       ! Copie de l'ecoulement dans la liste        
-        call CopyEcoulement( L_ecoulements%F(i_ordi+1), Ecoulement, Mesh_ref%Nnoeud)
         
-        ! Copie des corps dans la liste
-        do j = 1, Mesh_ref%Nbody
+        ! Sauvegarde de l'ecoulement
+        call DelEcoulement(L_ecoulements%F(i_ordi+1))
+        call NewEcoulement(L_ecoulements%F(i_ordi+1), Mesh%Nnoeud)
+        call CopyEcoulement( L_ecoulements%F(i_ordi+1), Ecoulement, Mesh%Nnoeud)
+        
+        ! Sauvegarde du maillage
+        call DelMaillage(L_maillages%F(i_ordi+1))
+        call NewMaillage(L_maillages%F(i_ordi+1), Mesh%Nnoeud, NBodies+1)
+        call CopyMaillage(L_maillages%F(i_ordi+1), Mesh)
+        
+        ! Sauvegarde des corps
+
+        do j = 1, NBodies+1
             L_bodies%F(i_ordi+1,j) = Mesh%Body(j)
         end do
         
@@ -310,33 +320,59 @@ module API_WSC
     
         integer :: i_iter, i_ordi
         character(len=50),intent(in) :: filestate_out
-        integer, intent(in) ::jt
+        integer, intent(in) ::jt        
+        
+        type(TEcoulement) :: Ecoulement_G1, Ecoulement_G2, Ecoulement_lambda
+        type(TMaillage) :: Mesh_lambda
+        
+        
+        
         
         ! Ecoulement
-        call DelEcoulement(Ecoulement)
-        call NewEcoulement(Ecoulement, Mesh_ref%Nnoeud)
-        call IniEcoulement(Ecoulement, Mesh_ref%Nnoeud, 0._RP)
+        call NewEcoulement(Ecoulement_G1, L_Maillages%F(i_ordi+1)%Nnoeud)
+        call NewEcoulement(Ecoulement_G2, L_Maillages%F(i_ordi+1)%Nnoeud)
+        call NewEcoulement(Ecoulement_lambda, L_Maillages%F(i_ordi+1)%Nnoeud)
+        
+        ! Maillage
+        call NewMaillage(Mesh_lambda, L_Maillages%F(i_ordi+1)%Nnoeud, NBodies+1)
+        
+        call CopyMaillage(Mesh_lambda, L_Maillages%F(i_ordi+1))
+        
+        
+
+        ! Interpolation des maillages grossiers
+        call Interpolation_FS(L_Maillages%G(i_iter+1, i_ordi+1), Mesh_lambda, Ecoulement_G1, ti,.true.,ierror)
+        call Interpolation_FS(L_Maillages%G(i_iter+2, i_ordi+1), Mesh_lambda, Ecoulement_G2, ti,.true.,ierror)
+        
+        
         
         ! Phi_p, Eta_p.
-        do j = Mesh_ref%FS%IndFS(1),Mesh_ref%FS%IndFS(3)
-            Ecoulement%Phi(j)%perturbation = L_ecoulements%F(i_ordi+1)%Phi(j)%perturbation &
-            + L_ecoulements%G(i_iter+2, i_ordi+1)%Phi(j)%perturbation &
-            - L_ecoulements%G(i_iter+1, i_ordi+1)%Phi(j)%perturbation
+        do j = Mesh_lambda%FS%IndFS(1), Mesh_lambda%FS%IndFS(3)
+            Ecoulement_lambda%Phi(j)%perturbation = L_ecoulements%F(i_ordi+1)%Phi(j)%perturbation &
+            + Ecoulement_G2%Phi(j)%perturbation &
+            - Ecoulement_G1%Phi(j)%perturbation
             
-            Ecoulement%Eta(j)%perturbation = L_ecoulements%F(i_ordi+1)%Eta(j)%perturbation &
-            + L_ecoulements%G(i_iter+2, i_ordi+1)%Eta(j)%perturbation &
-            - L_ecoulements%G(i_iter+1, i_ordi+1)%Eta(j)%perturbation
+            Ecoulement_lambda%Eta(j)%perturbation = L_ecoulements%F(i_ordi+1)%Eta(j)%perturbation &
+            + Ecoulement_G2%Eta(j)%perturbation &
+            - Ecoulement_G1%Eta(j)%perturbation
         end do
       
         ! Corps
-        do nc = 1,Mesh_ref%NBody
-            Mesh_ref%Body(nc)%MBody = L_bodies%F(i_ordi+1, nc)%MBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%MBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%MBody
-            Mesh_ref%Body(nc)%CSolv = L_bodies%F(i_ordi+1, nc)%CSolv + L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv -L_bodies%G(i_iter+1, i_ordi+1, nc)%CSolv
-            Mesh_ref%Body(nc)%GBody = L_bodies%F(i_ordi+1, nc)%GBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%GBody
-            Mesh_ref%Body(nc)%VBody = L_bodies%F(i_ordi+1, nc)%VBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%VBody
+        do nc = 1, Mesh_lambda%NBody
+            Mesh_lambda%Body(nc)%MBody = L_bodies%F(i_ordi+1, nc)%MBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%MBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%MBody
+            Mesh_lambda%Body(nc)%CSolv = L_bodies%F(i_ordi+1, nc)%CSolv + L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv -L_bodies%G(i_iter+1, i_ordi+1, nc)%CSolv
+            Mesh_lambda%Body(nc)%GBody = L_bodies%F(i_ordi+1, nc)%GBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%GBody
+            Mesh_lambda%Body(nc)%VBody = L_bodies%F(i_ordi+1, nc)%VBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%VBody
         end do
         
-        call Write_State2(Mesh_ref,Ecoulement,ti,jt,Starting_time,jFiltering, filestate_out)
+
+        call Write_State2(Mesh_lambda,Ecoulement_lambda,ti,jt,Starting_time,jFiltering, filestate_out)
+         
+        
+        call DelEcoulement(Ecoulement_G1)
+        call DelEcoulement(Ecoulement_G2)
+        call DelEcoulement(Ecoulement_lambda)
+        call DelMaillage(Mesh_lambda)
 
     end subroutine API_parareal_calcul_lambda
     
@@ -344,18 +380,18 @@ module API_WSC
     
     
     
-    subroutine API_Write_State_with_interpolation(filename, jt)
-    
-        character(len=50),intent(in) :: filename
-        integer, intent(in) ::jt
-
-        
-        call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)
-        call Write_State2(Mesh_ref,Ecoulement,ti,jt,Starting_time,jFiltering, filename)
-        
-    end subroutine
-    
-    
+    !subroutine API_Write_State_with_interpolation(filename, jt)
+    !
+    !    character(len=50),intent(in) :: filename
+    !    integer, intent(in) ::jt
+    !
+    !    
+    !    call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)
+    !    call Write_State2(Mesh_ref,Ecoulement,ti,jt,Starting_time,jFiltering, filename)
+    !    
+    !end subroutine
+    !
+    !
     
     
     subroutine API_open_file_WP(filename, io)
@@ -710,9 +746,7 @@ module API_WSC
                 
                 ! Interpolation of Phi_p and Eta_p from the Mesh_State.
                 call Interpolation_FS(Mesh_State,Mesh,Ecoulement_State,t(1),.true.,ierror) ! True because there is a FS remeshing, therefore an interpolation.
-                write(1111,*) "Pretemporal"
-                write(1111,*) Mesh_State%Nnoeud
-                write(1111,*) Mesh%Nnoeud
+
                 
                 ! Initilization of Ecoulement from Ecoulement_State.
                 call CopyEcoulement(Ecoulement, Ecoulement_State, Mesh%Nnoeud)
