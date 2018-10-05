@@ -175,6 +175,63 @@ module API_WSC
     
     ! Yohan ----------------------------------------
     
+    ! Subroutine pour enregistrer le maillage et les coefficients d'influence (pour tester le GPU)
+    subroutine save_mesh_CI()
+    
+        integer :: i
+        
+        open(file = "mesh.txt", unit = 9354)
+    
+        write(9354,*) Mesh%Nnoeud
+        
+        do i = 1, Mesh%Nnoeud
+             write(9354,*) Mesh%TNoeud(i)%PNoeud
+        end do
+        
+        write(9354,*) Mesh%Nfacette
+        
+        do i = 1, Mesh%Nfacette
+             write(9354,*) reshape(Mesh%Tfacette(i)%dsT, (/9/) )
+        end do
+        
+        do i = 1, Mesh%Nfacette
+             write(9354,*) Mesh%Tfacette(i)%Tnoeud
+        end do
+        
+        do i = 1, Mesh%Nfacette
+             write(9354,*) Mesh%Tfacette(i)%Gfacette
+        end do
+        
+        do i = 1, Mesh%Nfacette
+             write(9354,*) Mesh%Tfacette(i)%Normale
+        end do
+        
+        
+        do i = 1, Mesh%Nfacette
+             write(9354,*) Mesh%Tfacette(i)%Rmax
+        end do
+    
+        close(unit = 9354)
+        
+        
+        open(file = "cd.txt", unit = 9354)
+        
+        
+
+        
+        do i = 1, 1
+            do j = 1, Mesh%Nnoeud
+                write(9354,*) i,j,CD(i,j)
+            end do
+        end do
+        
+        
+        close(unit = 9354)
+        
+        
+    end subroutine
+    
+    
     
     subroutine print_file(text, io)
         character (len=50),intent(in) :: text
@@ -184,6 +241,8 @@ module API_WSC
         
     end subroutine print_file
         
+    
+    
         
         
         
@@ -261,6 +320,109 @@ module API_WSC
     
     
     
+    subroutine valeur_probe(InputData,Mesh,Ecoulement, nc)
+    
+        integer                             :: nc               ! Indice de la probe
+        !f2py integer*1, dimension(1000)    :: InputData
+        type(InputDataStruct),intent(in)    :: InputData        ! Input data.
+        !f2py integer*1, dimension(1000)    :: Mesh
+        type(TMaillage)                     :: Mesh             ! Mesh.
+        !f2py integer*1, dimension(1000)    :: Ecoulement
+        type(TECoulement)                   :: Ecoulement       ! Flow parameters.
+
+        real(rp)                            :: Eta_Pertubation  ! Perturbation wave elevation.
+        integer                             :: k             ! Loop parameters.
+        real(rp)                            :: dist,PjPk        ! Distances between two points.
+        integer                             :: Na, Nvoisin      ! Spline ordre and number of neighbours.
+        integer                             :: ClosestPoints    ! Closest point of the mesh for the position of a wave probe.
+        real(rp),allocatable                :: Pvoisin(:,:)     ! Position of the neighbours.
+        real(rp),allocatable                :: A(:,:), B(:)     ! Matrix A and vector B for the B-spline problem.
+        integer                             :: info             !
+        character(len=1)                    :: trans            !
+        integer                             :: lda, nrhs        ! Size of the matrix A and number of rhs.
+        integer, allocatable                :: ipiv(:)          !
+        
+        ! This subroutine writes the wave elevation output files.
+    
+        ! Eta_Perturbation from B-spline interpolation of Ecoulement%Eta_p
+        Eta_Pertubation = 0._RP
+        ClosestPoints = 0
+        dist = 999._RP
+        do k = Mesh%FS%IndFS(1), Mesh%FS%IndFS(3)
+            PjPk = norm2(InputData%PositionWP(1:3,nc)-Mesh%Tnoeud(k)%Pnoeud)
+            if(PjPk .le. dist)then
+                dist = PjPk
+                ClosestPoints = k
+            end if
+        end do
+        
+        if(is_BS)then
+            
+            ! Spline ordre at the closest point of the wave probe.
+            Na = Nordre(Mesh%Tnoeud(ClosestPoints)%Ordre)
+            
+            ! Number of neighbours of the closest point.
+            NVoisin = Mesh%Tnoeud(ClosestPoints)%NVoisin(2)-1 ! -1 because the point itself is counted.
+            
+            ! Allocations
+            allocate(Pvoisin(3,NVoisin+1), B(NVoisin+Na), A(NVoisin+Na,NVoisin+Na))
+                                    
+            ! Pvoisin and B
+            do k=1,NVoisin+1 
+                
+                ! Neighbours of the points.
+                Pvoisin(1:3,k) = Mesh%Tnoeud(abs(Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)))%Pnoeud ! k = 1 is Mesh%Tnoeud(ClosestPoints) itself.
+                
+                if(Mesh%Tnoeud(abs(Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)))%NPanneau.ne.0)then
+                    print*,"PlotWaveElevation: Point is not on the FS:"
+                    pause
+                end if
+                
+                if (Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1).lt.0) Pvoisin(2,k) = - Pvoisin(2,k)
+                B(k) = Ecoulement%Eta(abs(Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)))%perturbation
+            
+                !print*, k, B(k), Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)
+            end do
+            B(Nvoisin+2:Nvoisin+Na) = 0._RP
+            
+            ! A
+            call SplineMatrix(Nvoisin, Mesh%Tnoeud(ClosestPoints)%Ordre, Pvoisin, A)
+            
+            ! Inversion of the linear system
+            lda = Nvoisin + Na
+            allocate(ipiv(lda))
+            ipiv = 0
+            trans = 'n'
+            nrhs = 1 ! Number of rhs.
+            call dgetrf(lda,lda,A,lda,ipiv,info)
+            if (info.ne.0) then
+                print*,'WARNING Interpolation: info =', info, lda, Mesh%Tnoeud(ClosestPoints)%NVoisin(2), Na
+                print*,Mesh%Tnoeud(ClosestPoints)%TVoisin(1:Mesh%Tnoeud(ClosestPoints)%NVoisin(2),1)
+                pause
+            end if
+            call dgetrs(trans,lda,nrhs,A,lda,ipiv,B,lda,info) ! The B-spline coefficients are in B.
+            deallocate(ipiv)
+            
+            ! Eta_p
+            call SplineF(Nvoisin, Mesh%Tnoeud(ClosestPoints)%Ordre, B(1:Nvoisin+Na), InputData%PositionWP(1:3,nc), Pvoisin, Eta_Pertubation) ! InputData%PositionWP(1:3,nc) is where SplineF is computed.
+            
+            ! Deallocations
+            if(allocated(Pvoisin)) deallocate(Pvoisin)
+            if(allocated(B)) deallocate(B)
+            if(allocated(A)) deallocate(A)
+            
+        else
+            print*,"PlotWaveElevation: interpolation algorithm only works with B-splines."
+            call exit()
+        end if
+        
+        ! Writing.
+        write(1111,*) "Pertubation : ", Eta_Pertubation
+
+    
+    end subroutine valeur_probe
+    
+    
     subroutine API_parareal_save_G(i_iter, i_ordi)
 
         integer :: i_iter, i_ordi
@@ -329,33 +491,39 @@ module API_WSC
         
         
         ! Ecoulement
-        call NewEcoulement(Ecoulement_G1, L_Maillages%F(i_ordi+1)%Nnoeud)
-        call NewEcoulement(Ecoulement_G2, L_Maillages%F(i_ordi+1)%Nnoeud)
+        call NewEcoulement(Ecoulement_G1, L_Maillages%G(i_iter+1, i_ordi+1)%Nnoeud)
+        call CopyEcoulement(Ecoulement_G1, L_Ecoulements%G(i_iter+1, i_ordi+1), L_Maillages%G(i_iter+1, i_ordi+1)%Nnoeud)
+        
+        call NewEcoulement(Ecoulement_G2, L_Maillages%G(i_iter+2, i_ordi+1)%Nnoeud)
+        call CopyEcoulement(Ecoulement_G2, L_Ecoulements%G(i_iter+2, i_ordi+1), L_Maillages%G(i_iter+2, i_ordi+1)%Nnoeud)
+        
         call NewEcoulement(Ecoulement_lambda, L_Maillages%F(i_ordi+1)%Nnoeud)
+
         
         ! Maillage
-        call NewMaillage(Mesh_lambda, L_Maillages%F(i_ordi+1)%Nnoeud, NBodies+1)
-        
+        call NewMaillage(Mesh_lambda, L_Maillages%F(i_ordi+1)%Nnoeud, NBodies+1)        
         call CopyMaillage(Mesh_lambda, L_Maillages%F(i_ordi+1))
-        
         
 
         ! Interpolation des maillages grossiers
         call Interpolation_FS(L_Maillages%G(i_iter+1, i_ordi+1), Mesh_lambda, Ecoulement_G1, ti,.true.,ierror)
         call Interpolation_FS(L_Maillages%G(i_iter+2, i_ordi+1), Mesh_lambda, Ecoulement_G2, ti,.true.,ierror)
         
-        
-        
+
         ! Phi_p, Eta_p.
         do j = Mesh_lambda%FS%IndFS(1), Mesh_lambda%FS%IndFS(3)
+        
+            
             Ecoulement_lambda%Phi(j)%perturbation = L_ecoulements%F(i_ordi+1)%Phi(j)%perturbation &
             + Ecoulement_G2%Phi(j)%perturbation &
             - Ecoulement_G1%Phi(j)%perturbation
+            
             
             Ecoulement_lambda%Eta(j)%perturbation = L_ecoulements%F(i_ordi+1)%Eta(j)%perturbation &
             + Ecoulement_G2%Eta(j)%perturbation &
             - Ecoulement_G1%Eta(j)%perturbation
         end do
+        
       
         ! Corps
         do nc = 1, Mesh_lambda%NBody
@@ -365,7 +533,16 @@ module API_WSC
             Mesh_lambda%Body(nc)%VBody = L_bodies%F(i_ordi+1, nc)%VBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%VBody
         end do
         
-
+        
+        !
+        !call valeur_probe(InputData,L_Maillages%G(i_iter+1, i_ordi+1), L_Ecoulements%G(i_iter+1, i_ordi+1), 1)
+        !call valeur_probe(InputData,L_Maillages%G(i_iter+2, i_ordi+1), L_Ecoulements%G(i_iter+2, i_ordi+1), 1)
+        !call valeur_probe(InputData,Mesh_lambda, L_ecoulements%F(i_ordi+1), 1)
+        !call valeur_probe(InputData,Mesh_lambda, Ecoulement_G1, 1)
+        !call valeur_probe(InputData,Mesh_lambda, Ecoulement_G2, 1)
+        !call valeur_probe(InputData,Mesh_lambda, Ecoulement_lambda, 1)
+        !
+        
         call Write_State2(Mesh_lambda,Ecoulement_lambda,ti,jt,Starting_time,jFiltering, filestate_out)
          
         
@@ -380,21 +557,8 @@ module API_WSC
     
     
     
-    !subroutine API_Write_State_with_interpolation(filename, jt)
-    !
-    !    character(len=50),intent(in) :: filename
-    !    integer, intent(in) ::jt
-    !
-    !    
-    !    call Interpolation_FS(Mesh, Mesh_ref,Ecoulement,ti,.true.,ierror)
-    !    call Write_State2(Mesh_ref,Ecoulement,ti,jt,Starting_time,jFiltering, filename)
-    !    
-    !end subroutine
-    !
-    !
     
-    
-    subroutine API_open_file_WP(filename, io)
+    subroutine API_parareal_open_file_WP(filename, io)
     
         character (len=50),intent(in)       :: filename         ! Fichier d'ecriture
         integer, intent(in)                 :: io               ! Indice du fichier ou on ecrit
@@ -406,11 +570,34 @@ module API_WSC
     
     end subroutine
     
+    subroutine API_parareal_open_file_force(filename, io)
+    
+        character (len=50),intent(in)       :: filename         ! Fichier d'ecriture
+        integer, intent(in)                 :: io               ! Indice du fichier ou on ecrit
+
+
+            
+        open(unit=io,file=filename,iostat=ios)
+        if(ios/=0) stop "Erreur lors de l'ouverture du fichier Wave_elevation"
+        write(io, fmt='(50a)') 'Title = "Loads"'
+        write(io,'(100a)') 'VARIABLES = "t","Fx","Fy","Fz"'
+   
+    end subroutine
     
     
     
     
-    subroutine API_write_WP(io, nc)
+    subroutine API_parareal_write_force(io,nc)
+    
+        integer, intent(in)                 :: nc               ! Indice de la probe
+        integer, intent(in)                 :: io               ! Indice du fichier ou on ecrit
+    
+        call PlotForces2(Mesh, Ecoulement, ti, nc, io)
+        
+    end subroutine
+    
+    
+    subroutine API_parareal_write_WP(io, nc)
     
         integer, intent(in)                 :: nc               ! Indice de la probe
         integer, intent(in)                 :: io               ! Indice du fichier ou on ecrit
@@ -421,7 +608,7 @@ module API_WSC
     
     
     
-    subroutine API_close_file_WP(io)
+    subroutine API_parareal_close_file(io)
     
         integer, intent(in)                 :: io               ! Indice du fichier ou on ecrit
     

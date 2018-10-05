@@ -48,8 +48,11 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
     type(TFacette)                                      :: Facette                                  ! Panel.
     real(rp)                                            :: Crmax                                    ! Distance criteria for the asymptotic development.
     real(rp),parameter                                  :: inv3 = 0.3333333333333333_rp             ! 1/3.
-            
+       
+
+    real(rp) :: ostart, oend ! Pour chronometerer en openmp
     
+    !$ ostart = omp_get_wtime()
 
     ! This subroutine was previously used. But it still works.
     ! This subroutine computes the influence coefficients from each node on each panel between the boundaries bornes.
@@ -74,6 +77,7 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
         ns1 = 0
     endif
 
+
     
     !$OMP PARALLEL DO NUM_THREADS(NThreads) SHARED(Mesh,borne,CD,CS,ns,ns1,Ldom) DEFAULT(PRIVATE) SCHEDULE(DYNAMIC,(borne(1,2)-borne(1,1)+1)/Nthreads)
     do j = borne(1,1),borne(1,2) ! 1st node, last node.
@@ -88,6 +92,21 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
             
             do k = borne(2,1),borne(2,2) ! 1st panel, last panel.
                 
+            
+            
+                  
+                    if (j ==1 .and. (k==317 .or. k==318 .or. k==379)) then
+                
+                        print_debug = 1
+                                
+                    else
+                        print_debug = 0
+                                
+                          
+                    end if
+                            
+                            
+                            
                 M = M0
                 Facette = Mesh%Tfacette(k) 
                 Crmax = 64._rp*Facette%Rmax**2 ! Crmax = (8*Rmax)^2, the value of 8 is justified in 3.4 of LL.
@@ -108,6 +127,12 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
                         ! Distance criteria to use or not an symptotic development.
                         Cr = dot_product(MG,MG) ! Cr = GM^2
                         
+                        
+
+                        
+                        
+                        
+                        
                         if(Cr.lt.Crmax)then ! Exact computation.
 
                             ! Exact computation.
@@ -115,13 +140,17 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
                             call Iints(M, Facette, Isigma, Imu) ! Line integrations.
                             call Sints(M, Facette, Ssigma, Smu) ! Surface integrations.
                             
+                            
+
+                            
                             ! Prise en compte du paramétrage de la facette.
                             Ar = [inv3,inv3,inv3] + matmul(Facette%dsT,MG)
                             Css = Css + Ssigma*Ar + matmul(Facette%dsT,Isigma)
                             Cdd = Cdd + Smu*Ar + matmul(Facette%dsT,Imu)
                             
-                                                                                    
 
+                            
+                            
                         else ! Asymptotic development.
                         
                             invRho = 1._RP/norm2(MG) ! invRho = 1/||GM||
@@ -168,6 +197,11 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
     end do
     !$OMP END PARALLEL DO
 
+    
+    !$ oend = omp_get_wtime()
+    
+    write(*,*) "Temps du calcul des coefficients d'influence : ", oend - ostart
+    
     ! Calcul de l'Angle Solide
     if(not(present(bornes)))then
         call Angle_solid(CD,Mesh%Nnoeud)
@@ -1079,6 +1113,10 @@ subroutine Iints(M, Facette, Isigma, Imu)
             Jsigma(:,j) = -0.5_RP*AB*dsT
             Jmu(:,j) = 0._RP
         else
+
+            
+            
+            
             if (abs(abs(dot_product(B-A,M-A))-(AB*AM)) .lt. Epsilon)then !((K1<1.0E-8_RP)) then ! M est sur la droite AB en dehors du segment [AB]
                 sgn = -dot_product(B-A,M-A)/AM
                 Jsigma(:,j) = -abs(AM+0.5*sgn)*dsT
@@ -1092,6 +1130,11 @@ subroutine Iints(M, Facette, Isigma, Imu)
                 q2 = (AB - ABM)*invK1
                 d1 = asinh(q1)
                 d2 = asinh(q2)
+                
+     
+                
+                
+                
                 Jsigma(:,j) = -0.5_RP*K1*( d2 - d1 + q2*sqrt(1._RP+q2*q2) - q1*sqrt(1._RP+q1*q1) )*dsT*invAB
                 call Computation_vect_product(A-M,B-A,vect_product)
                 dsT = vect_product*invAB

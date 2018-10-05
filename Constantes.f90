@@ -28,6 +28,10 @@
 	real(RP),PARAMETER :: Epsilon2 = 1.0E-7
     real(rp),parameter :: Epsgeom = 1.0E-7
     
+    
+    
+    integer :: print_debug = 0 ! A sUPPRIMER
+    
     ! Erreur allocation
 	integer :: ierr
     

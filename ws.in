@@ -44,14 +44,14 @@
     Frozen Runge Kutta                          :   RK_figee        :   F
     Latching Method				:   is_latching	    :	F
     Starting time                               :   t0              :   0.
-    Time step                                   :   dt              :   0.002
-    Number of time step                         :   nt              :   1000  
+    Time step                                   :   dt              :   0.01
+    Number of time step                         :   nt              :   400  
     Time instant for initial ramp               :   [T1,T2]         :   [0. 1.]
     Starting time for output                    :   Tout            :   0.
     Time step for output                        :   nout            :   1
     Linear solver (0:LU, 1:GMRES)               :   Solv            :   0
     Tolerance GMRES                             :   tolGMRES        :   0.000000001
-    Smoothing frequency                         :   nliss           :   5
+    Smoothing frequency                         :   nliss           :   0
     Hydrostatique computed or not		:   hydrostatique   :   T
     Number of threads				:   NThreads	    :   1
 # WAVE PROBES -----------------------------------------------------------------------

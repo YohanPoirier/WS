@@ -521,9 +521,12 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
         end if
     end if
     
+    
         
     ! Computation of the influence coefficients
     if(CCI .and. DeformMesh .and. bool)then ! Partial computation of the influence coefficients, the mesh is moving and no remeshing.
+
+        
         if(CIPartiel.lt.0)then ! If the partial computation of the influence coefficients is activated.
             allocate(LTab(Mesh%Nnoeud))
             Ltab = .true.
@@ -722,6 +725,8 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
         if(.not. Opt)then ! If Opt = false (every case but forced motion when solBVP is called for the second time).
             CD = 0._RP ; CS = 0._RP
             call CoeffInfl(Mesh, CD, CS,N)
+            
+
         end if
         
     end if

@@ -599,6 +599,67 @@ subroutine ForceBodyMotion(Mesh, Ecoulement, t, InputData)
     
 end subroutine ForceBodyMotion
 
+
+
+
+!Yohan : comme PlotForces mais avec le fichier où on écrit en argument
+
+subroutine PlotForces2(Mesh, Ecoulement, t, nc, io)
+    
+    !f2py integer*1, dimension(1000)    :: Mesh
+    type(TMaillage)                     :: Mesh                             ! Mesh.
+    !f2py integer*1, dimension(1000)    :: Ecoulement
+    type(TEcoulement)                   :: Ecoulement                       ! Flow parameters.
+ 
+    integer                             :: nc ! Indice du corps
+    integer                             :: io ! Indice du fichier ou on écrit                           
+    real(rp)                            :: t
+    real(rp)                            :: F_i
+    real(rp), dimension(3)              :: Force
+    real(rp), dimension(3)              :: normale
+    real(rp)                            :: aire
+    real(rp)                            :: DPhiDt, GPhi2, TimeRamp
+    real(rp), dimension(3)              :: GPhip, GPhi0
+    
+    integer :: i,j,k
+    
+    call Ramp_Management(t,TimeRamp)
+    
+    
+    Force = 0.
+    
+    do i = Mesh%Body(nc)%IndBody(2), Mesh%Body(nc)%IndBody(4)
+        
+        normale = Mesh%TFacette(i)%Normale
+        aire = Mesh%TFacette(i)%Aire
+        
+
+        do j = 1, 3
+        
+            k = Mesh%TFacette(i)%Tnoeud(j)
+
+            GPhip = Ecoulement%GPhi(:,k)%perturbation
+            GPhi0 = TimeRamp*Ecoulement%GPhi(:,k)%incident
+            DPhiDt = TimeRamp*Ecoulement%DPhiDt(j)%incident + Ecoulement%DPhiDt(j)%perturbation
+            GPhi2 = dot_product(GPhi0+GPhip,GPhi0+GPhip) - dot_product(GPhip,GPhip)
+                
+    
+            Force = Force +  aire*normale*(DPhiDt + 0.5_rp*GPhi2 + g*Mesh%TNoeud(k)%PNoeud(3))
+
+        end do
+        
+    end do
+    
+    Force = Force*ro*(1._rp/3._rp) ! 1/3 car précédemment la valeur sur la facette correspond à la moyenne des valeurs aux sommets
+    
+    write(io, '(4E)') t, Force  
+    
+    
+end subroutine PlotForces2
+
+
+
+
 subroutine PlotForces(Mesh, Ecoulement, t, InputData)
     
     !f2py integer*1, dimension(1000)    :: Mesh
@@ -624,6 +685,8 @@ subroutine PlotForces(Mesh, Ecoulement, t, InputData)
     
     jj = 1
     do nc = Int_Body,Mesh%NBody
+    
+
     
         ! Initialization
         Fhs = 0._RP

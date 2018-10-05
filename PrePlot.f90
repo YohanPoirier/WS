@@ -1197,6 +1197,10 @@ subroutine PlotWaveElevation(t,InputData,Mesh,Ecoulement)
     
 end subroutine PlotWaveElevation
 
+
+
+! Yohan : comme PlotWaveElevation, mais avec le fichier où on écrit en argument
+
 subroutine PlotWaveElevation2(t,InputData,Mesh,Ecoulement, io, nc)
     
     integer                             :: nc               ! Indice de la probe
