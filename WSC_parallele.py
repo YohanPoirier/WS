@@ -16,6 +16,12 @@ import ecriture_data as ec
 def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
 
 
+
+    
+
+        
+        
+        
     ta = time.time()
     
     
@@ -28,6 +34,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
 
     tb = time.time()
         
+
     if grossier :
         parameters.lineairefs = -1
         parameters.lineairebody = -1
@@ -49,12 +56,13 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
     tc = time.time()
     
     # Creating the mesh
+    
+    
     api_wsc.api_mesh()
     
     td = time.time()
-    # N_f, N_n, N_body = api_wsc.import_mesh_dim()
-    # 
-    # L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_type = api_wsc.import_mesh(N_f, N_n)
+
+
 
 
     # Calling all the subroutines which are used before the beginning of the temporal loop.
@@ -82,9 +90,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         parameters.grossier_init = -1
         
         
-
-    
-    print("trkkedpkedpkoedpko", tb-ta,tc-tb,td-tc,te-td)
+    #print("trkkedpkedpkoedpko", tb-ta,tc-tb,td-tc,te-td)
 
     # Temporal loop
     for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
@@ -114,6 +120,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
 
         # RK4 loop
         for jk in range(1,4+1): # +1 to reach jk = 4
+            
 
 
             # Computation of the time step of the RK4 step and the current time
@@ -167,17 +174,15 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
     
             if (parameters.deformmesh == -1): # -1 = True
                 api_wsc.api_meshvel()
-       
+
             #Resolution du probleme surfacique
             api_wsc.api_solbvp(False)
-            
-       
 
             # Computation of the gradient on the floater (surface and normal gradient)
+            
             api_wsc.api_gradient()
     
-    
-      
+
             # Computation of DPhiDt and DEtaDt and spatial differentiations
             api_wsc.api_derive()
     
@@ -276,7 +281,6 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
                 
                 api_wsc.api_parareal_write_force(io_F,2)
                 
-                
 
         # Time-stepping
         api_wsc.api_time_stepping()
@@ -301,10 +305,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
 
     t2 = time.time()
     
-    tc = time.time()
-    
-    print("teeemmmps", tb-ta,tc-tb)
-    
+
     print("Temps total : {}".format(t2-t1))
 
     
@@ -316,7 +317,7 @@ api_wsc.api_open_file_debug()
 
 
 N_iterations = 10
-N_ordis = 40
+N_ordis = 1
 
 io_WP = 7988
 io_F = 4524
@@ -383,7 +384,7 @@ tb = time.time()
 
 # print(tb-ta)
 # 
-# exit()
+exit()
 
 
 # Iterations

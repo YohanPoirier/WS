@@ -203,8 +203,7 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
         
     integer :: i_test, compt ! a supprimer
     real(rp) :: ta,tb,tc,td,te
-    
-    logical :: acce = .true.
+
     
     
     call CPU_TIME(ta)
