@@ -313,8 +313,8 @@ module API_WSC
         ! Initialisation de la liste des corps
         allocate(L_bodies%G(N_iterations+1, N_ordis, Nbodies+1))
         allocate(L_bodies%lambda(N_iterations+1, N_ordis, Nbodies+1))
-        allocate(L_bodies%F(N_ordis, Nbodies+1))
- 
+        allocate(L_bodies%F(N_ordis, Nbodies+1))        
+        
     end subroutine API_parareal_init
     
     
@@ -1025,6 +1025,23 @@ module API_WSC
         
     end subroutine API_MeshVel
     
+    
+    
+    
+    
+        
+    subroutine API_init_lineaire()
+    
+        call initialisation_lineaire(Ecoulement, Mesh, Nnodes, CD, CS)
+        
+    end subroutine API_init_lineaire
+    
+    
+    
+    
+    
+    
+    
     subroutine API_solBVP(bool_CUDA)
     
         logical :: bool_CUDA
@@ -1032,7 +1049,7 @@ module API_WSC
         
         time2 = 0._RP ! To be deleted.
         if (bool_CUDA) then
-            call solBVP2( Ecoulement, Mesh, CD, CS, Nnodes,time2,boolRemesh, rCI)
+            call solBVP_cuda( Ecoulement, Mesh, CD, CS, Nnodes,time2,boolRemesh, rCI)
         else
             !allocate(A(Mesh%Nsys,Mesh%Nsys), B(Mesh%Nsys))
             !call solBVP3( Ecoulement, Mesh, CD, CS,A,B, Nnodes,time2,boolRemesh, rCI)

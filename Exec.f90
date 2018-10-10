@@ -205,6 +205,9 @@ subroutine read_input(fileparam,InputData,ierror)
     read(ioparam,'(a)',end=1000,err=9999) line
     call read_param(ioparam,CCI)
     call read_param(ioparam,is_BS)
+    
+    is_BS_GS = is_BS
+    
     call read_param(ioparam,SplineOrder)
     if(SplineOrder.eq.0)then
         print*,"The interpolation algorithm uses thin plate b-splines."

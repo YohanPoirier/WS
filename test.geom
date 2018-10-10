@@ -39,8 +39,8 @@
     File                                                :   file_axisym     :   wavestar_axisym.dat
 # Definition of displacement (if free_body = F)    
     Constante veocity (m/s)                             :   Vcst            :   0.
-    Amplitude (m)                               	:   Acorps          :   0.
-    Pulsation (rad/s)                           	:   wcorps          :   0.
+    Amplitude (m)                               	:   Acorps          :   0.1
+    Pulsation (rad/s)                           	:   wcorps          :   3.2
     Phase (rad)                           		:   Phicorps        :   0.
 # PTO Model    
     Stiffness                                   	:   Raideur         :   0
@@ -48,5 +48,5 @@
     Position                                    	:   PRessort        :   [0. 0 0]
     Damping coefficient                         	:   B_PTO           :   0
     Viscous force, Morison coefficient          	:   Cd_Morison      :   0
-    Degree of Freedom                           	:   DOF             :   [F F F F F F]
+    Degree of Freedom                           	:   DOF             :   [F F T F F F]
 #--------------------------------------------------------------------------------------------------

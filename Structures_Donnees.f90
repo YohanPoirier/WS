@@ -108,7 +108,7 @@ type TMaillage
 	integer                                     :: Nsys     ! Nombre d'inconnues dans BVP (différent de Nnoeud si la cuve est fixe par exemple).
 	integer                                     :: Nfsys    ! Nombre de facettes liées aux inconnues (juste pour visu).
 	integer                                     :: TypeM    ! Type of the mesh : 0 --> circular, 1 --> rectangular.
-	real(rp), dimension(5)                      :: DimTank  ! Dimensions of the tank ( Length/diameter, width/diameter, depth, damping dimension parameter, any other parameter).
+	real(rp), dimension(5)                      :: DimTank  ! Dimensions of the tank ( Length/diameter, width/diameter, depth, damping dimension parameter, any other parameter).    
 end type TMaillage
 
 type TPotentiel

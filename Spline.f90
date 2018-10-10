@@ -12,16 +12,20 @@ subroutine Gradient(Mesh, Ecoulement)
     type(TMaillage),intent(in)          :: Mesh         ! Mesh
     !f2py integer*1, dimension(1000)    :: Ecoulement
     type(TEcoulement),intent(inout)     :: Ecoulement   ! Flow parameters
+
+    
     
     ! This subroutine computes the gradients (potential and wave elevation) on the free surface, on the floaters and at the intersections (because of the double nodes).
-    
+
     call GradientFS(Mesh, Ecoulement)
     call GradientBody(Mesh, Ecoulement)
     call GradientIntersection(Mesh, Ecoulement)
-    
+
 end subroutine Gradient
 
-subroutine GradientFS(Mesh, Ecoulement)
+
+
+subroutine GradientFS_modif(Mesh, Ecoulement)
 	
     !f2py integer*1, dimension(1000)    :: Ecoulement
     type(TEcoulement),intent(inout)     :: Ecoulement                   ! Flow parameters.
@@ -40,6 +44,8 @@ subroutine GradientFS(Mesh, Ecoulement)
     integer                             :: lda, nrhs
     integer, allocatable                :: ipiv(:) 
     
+
+    
     ! This subroutine computes the gradients (potential and wave elevation) of the velocity potential on the free surface.
     
     do j = Mesh%FS%IndFS(1),Mesh%FS%IndFS(3)
@@ -48,8 +54,9 @@ subroutine GradientFS(Mesh, Ecoulement)
             call gradspline( j, Ecoulement, Mesh, .true.)
             Ecoulement%GPhi(:,j)%perturbation = Ecoulement%GPhi(:,j)%perturbation + Ecoulement%DPhiDn(j)%perturbation*Mesh%Tnoeud(j)%Normale
             
-        elseif(is_BS) then
-                        
+        elseif(is_BS_GS) then
+                
+
             Na = Nordre(Mesh%Tnoeud(j)%Ordre)
             NVoisin = Mesh%Tnoeud(j)%NVoisin(2)-1
             allocate(Pvoisin(3,NVoisin+1), B(NVoisin+Na,2), A(NVoisin+Na,NVoisin+Na))
@@ -61,10 +68,11 @@ subroutine GradientFS(Mesh, Ecoulement)
                 B(k,2) = Ecoulement%Eta(abs(Mesh%Tnoeud(j)%TVoisin(k,1)))%perturbation
             end do
             B(Nvoisin+2:Nvoisin+Na,1:2) = 0._RP
-            
+
             ! On construit A.
             call SplineMatrix(Nvoisin, Mesh%Tnoeud(j)%Ordre, Pvoisin, A)
             
+
             ! Résolution du Système Linéaire.
             lda = Nvoisin+Na
             allocate( ipiv(lda) )
@@ -80,6 +88,7 @@ subroutine GradientFS(Mesh, Ecoulement)
             call dgetrs(trans,lda,nrhs,A,lda,ipiv,B,lda,info)
             deallocate(ipiv)
             
+ 
             ! Calcul des Dérivées Premières de la géométrie locale.
             call SplineDF(Nvoisin, Mesh%Tnoeud(j)%Ordre, B(1:Nvoisin+Na,1), Pvoisin(1:3,1), Pvoisin, DF1)
             call SplineDF(Nvoisin, Mesh%Tnoeud(j)%Ordre, B(1:Nvoisin+Na,2), Pvoisin(1:3,1), Pvoisin, DF2)
@@ -101,9 +110,139 @@ subroutine GradientFS(Mesh, Ecoulement)
             Ecoulement%GPhi(1:3,j)%perturbation = Ecoulement%GPhi(1:3,j)%perturbation + Ecoulement%DPhiDn(j)%perturbation*Mesh%Tnoeud(j)%Normale
             
             deallocate(Pvoisin, A, B)
-            
+    
         else
             
+            ! Linear Panel approximation.
+            Ecoulement%GEta(1:3,j)%perturbation = 0._RP
+            Ecoulement%GPhi(1:3,j)%perturbation = 0._RP
+            Ponderation = 0._RP
+            
+            do k = 1,Mesh%Tnoeud(j)%Nfacette
+                Ponderation = Ponderation + Mesh%Tnoeud(j)%Angle(k)
+                do r = 1,3
+                    Phifacette(r)=Ecoulement%Eta(Mesh%Tfacette(Mesh%Tnoeud(j)%Tfacette(k,1))%Tnoeud(r))%perturbation
+                end do
+                Ecoulement%GEta(1:3,j)%perturbation = Ecoulement%GEta(1:3,j)%perturbation + matmul(Mesh%Tfacette(Mesh%Tnoeud(j)%Tfacette(k,1))%ds,Phifacette)*Mesh%Tnoeud(j)%Angle(k)
+                do r = 1,3
+                    Phifacette(r)=Ecoulement%Phi(Mesh%Tfacette(Mesh%Tnoeud(j)%Tfacette(k,1))%Tnoeud(r))%perturbation
+                end do
+                Ecoulement%GPhi(1:3,j)%perturbation = Ecoulement%GPhi(1:3,j)%perturbation + matmul(Mesh%Tfacette(Mesh%Tnoeud(j)%Tfacette(k,1))%ds,Phifacette)*Mesh%Tnoeud(j)%Angle(k)
+            end do
+            
+            Ecoulement%GEta(1:3,j)%perturbation = Ecoulement%GEta(1:3,j)%perturbation/Ponderation
+            Ecoulement%GPhi(1:3,j)%perturbation = Ecoulement%GPhi(1:3,j)%perturbation/Ponderation
+            
+            if (Symmetry.and.abs(Mesh%Tnoeud(j)%Pnoeud(2)).lt.Epsilon) then
+                !Ecoulement%GEta(1:3,j)%perturbation = 2._RP*Ecoulement%GEta(1:3,j)%perturbation
+                Ecoulement%GEta(2,j)%perturbation = 0._RP
+                !Ecoulement%GPhi(1:3,j)%perturbation = 2._RP*Ecoulement%GPhi(1:3,j)%perturbation
+                Ecoulement%GPhi(2,j)%perturbation = 0._RP
+            end if
+            
+            Ecoulement%GPhi(:,j)%perturbation = Ecoulement%GPhi(:,j)%perturbation + Ecoulement%DPhiDn(j)%perturbation*Mesh%Tnoeud(j)%Normale
+            
+        end if
+        
+    end do
+    
+end subroutine GradientFS_modif
+
+
+
+
+
+subroutine GradientFS(Mesh, Ecoulement)
+	
+    !f2py integer*1, dimension(1000)    :: Ecoulement
+    type(TEcoulement),intent(inout)     :: Ecoulement                   ! Flow parameters.
+    !f2py integer*1, dimension(1000)    :: Mesh
+    type(TMaillage),intent(in)          :: Mesh                         ! Mesh.
+    
+    integer                             :: j, k, r                      ! Loop parameters.
+    integer                             :: Na, Nvoisin                  ! Spline ordre and number of neighbours.
+    real(rp)                            :: Ponderation
+    real(rp), dimension(2)              :: DF1, DF2
+    real(rp), dimension(2,2)            :: TenseurMetrique
+    real(rp), dimension(3)              :: DFDu, DFDv, Phifacette
+    real(rp), allocatable               :: Pvoisin(:,:), A(:,:), B(:,:)
+    integer                             :: info
+    character(len=1)                    :: trans
+    integer                             :: lda, nrhs
+    integer, allocatable                :: ipiv(:) 
+    
+
+    
+    ! This subroutine computes the gradients (potential and wave elevation) of the velocity potential on the free surface.
+    
+    
+
+    
+    do j = Mesh%FS%IndFS(1),Mesh%FS%IndFS(3)
+        
+        if (.false.) then
+            call gradspline( j, Ecoulement, Mesh, .true.)
+            Ecoulement%GPhi(:,j)%perturbation = Ecoulement%GPhi(:,j)%perturbation + Ecoulement%DPhiDn(j)%perturbation*Mesh%Tnoeud(j)%Normale
+            
+        elseif(is_BS_GS) then
+                
+
+            Na = Nordre(Mesh%Tnoeud(j)%Ordre)
+            NVoisin = Mesh%Tnoeud(j)%NVoisin(2)-1
+            allocate(Pvoisin(3,NVoisin+1), B(NVoisin+Na,2), A(NVoisin+Na,NVoisin+Na))
+            
+            do k = 1,NVoisin+1
+                Pvoisin(1:3,k) = Mesh%Tnoeud(abs(Mesh%Tnoeud(j)%TVoisin(k,1)))%Pnoeud
+                if (Mesh%Tnoeud(j)%TVoisin(k,1).lt.0) Pvoisin(2,k) = - Pvoisin(2,k)
+                B(k,1) = Ecoulement%Phi(abs(Mesh%Tnoeud(j)%TVoisin(k,1)))%perturbation
+                B(k,2) = Ecoulement%Eta(abs(Mesh%Tnoeud(j)%TVoisin(k,1)))%perturbation
+            end do
+            B(Nvoisin+2:Nvoisin+Na,1:2) = 0._RP
+
+            ! On construit A.
+            call SplineMatrix(Nvoisin, Mesh%Tnoeud(j)%Ordre, Pvoisin, A)
+            
+
+            ! Résolution du Système Linéaire.
+            lda = Nvoisin+Na
+            allocate( ipiv(lda) )
+            ipiv=0
+            trans='n'
+            nrhs=2 ! Nombre de second membre.
+            call dgetrf(lda,lda,A,lda,ipiv,info)
+            if (info.ne.0) then
+                print*, 'Warning GradientFS 69 : info =', info, lda, j, Mesh%Tnoeud(j)%NVoisin(2), Na
+                print*, Mesh%Tnoeud(j)%TVoisin(1:Mesh%Tnoeud(j)%NVoisin(2),1)
+                pause
+            end if
+            call dgetrs(trans,lda,nrhs,A,lda,ipiv,B,lda,info)
+            deallocate(ipiv)
+            
+ 
+            ! Calcul des Dérivées Premières de la géométrie locale.
+            call SplineDF(Nvoisin, Mesh%Tnoeud(j)%Ordre, B(1:Nvoisin+Na,1), Pvoisin(1:3,1), Pvoisin, DF1)
+            call SplineDF(Nvoisin, Mesh%Tnoeud(j)%Ordre, B(1:Nvoisin+Na,2), Pvoisin(1:3,1), Pvoisin, DF2)
+            
+            ! Retour à la base globale.
+            DfDu = [1._RP,0._RP,Mesh%Tnoeud(j)%DLocal(1)]
+            DfDv = [0._RP,1._RP,Mesh%Tnoeud(j)%DLocal(2)]
+            TenseurMetrique = reshape([1+Mesh%Tnoeud(j)%DLocal(2)**2, -Mesh%Tnoeud(j)%DLocal(1)*Mesh%Tnoeud(j)%DLocal(2),&
+                         -Mesh%Tnoeud(j)%DLocal(1)*Mesh%Tnoeud(j)%DLocal(2), 1+Mesh%Tnoeud(j)%DLocal(1)**2]/Mesh%Tnoeud(j)%DLocal(5),(/2,2/))
+            
+            ! Calcul du gradient surfacique de la déformée de surface libre.
+            Ecoulement%GEta(1:2,j)%perturbation = DF2
+            Ecoulement%GEta(3,j)%perturbation = 0._RP
+            
+            ! Calcul du gradient surfacique du potentiel.
+            Ecoulement%GPhi(1:3,j)%perturbation = DF1(1)*(TenseurMetrique(1,1)*DfDu + TenseurMetrique(1,2)*DfDv) + DF1(2)*(TenseurMetrique(2,1)*DfDu + TenseurMetrique(2,2)*DfDv)
+            
+            ! Ajout de la composante normale.
+            Ecoulement%GPhi(1:3,j)%perturbation = Ecoulement%GPhi(1:3,j)%perturbation + Ecoulement%DPhiDn(j)%perturbation*Mesh%Tnoeud(j)%Normale
+            
+            deallocate(Pvoisin, A, B)
+    
+        else
+            write(1111,*) "youpiiiiiiiiiiiiiiiiiiiiiiii"
             ! Linear Panel approximation.
             Ecoulement%GEta(1:3,j)%perturbation = 0._RP
             Ecoulement%GPhi(1:3,j)%perturbation = 0._RP
@@ -168,7 +307,7 @@ subroutine GradientBody(Mesh, Ecoulement)
         
             i1 = Mesh%Body(nc)%IndBody(1)
             i2 = Mesh%Body(nc)%IndBody(3)
-            if (is_BS) then
+            if (is_BS_GS) then
             
                 ! B-Splines approximation.
                 do j=i1,i2

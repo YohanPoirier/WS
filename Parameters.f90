@@ -53,6 +53,9 @@ real(rp),   parameter               :: dS2max = 9.
 ! -- Numerical parameters --------------------------------------------------
 logical                             :: CCI                          ! Partial computation of the influence coefficients (T/F).
 logical                             :: is_BS                        ! true--> Bspline, false --> Linear discretization.
+logical                             :: is_BS_GS                     ! true--> Bspline, false --> Linear discretization (pour le calcul du gradient surfacique)
+
+
 real(rp)                            :: DPNormals                    ! Dot product of the FS normal and the body normal at the intersection curve. If nFS.nBody >= DPNormals (usually around 1), the linear system to update the gradient is ill-conditionned (cf the subroutine GradientIntersection).
 integer                             :: SplineOrder                  ! Orders of the B-Spline(0, 3 or 4) and order of the neighboring points.
 integer                             :: Theory                       ! Potential Theory used (0: Fully Linear (FS and Body),
@@ -88,6 +91,26 @@ logical                             :: FreeBodies                   ! = 1 if at 
 integer                             :: NThreads                     ! Number of threads for OpenMP.
 ! -- Body Motion parameters ------------------------------------------------
 integer                             :: Tcase                        ! Choix de CL pour déplacement, vitesse et accélération du corps dans Incident      Useless !!!
+
+
+
+! -- Parareal ------------------------!
+
+logical                                     :: grossier
+logical                                     :: grossier_init
+real(rp), dimension(:,:), allocatable       :: Ainv1, Ainv2   ! Matrices inverted of the two BVP
+real(rp), dimension(:), allocatable         :: cond1, cond2   ! Conditionnement matrices  of the two BVP
+    
+
+
+
+
+
+
+
+
+
+
 
 ! ==========================================================================
 ! --------------------------------------------------------------------------

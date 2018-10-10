@@ -13,38 +13,45 @@ import time
 import ecriture_data as ec
 
 
-def calcul(lineairefs, lineairebody, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
+def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
 
+
+    ta = time.time()
+    
+    
     # Reading the input files
     if filestate_in == "" :
         api_wsc.api_execution('ws.in','test.geom')
     else :
         api_wsc.api_execution('ws.in','test.geom', True, filestate_in)
-    
+
+
+    tb = time.time()
         
-    if lineairefs :
+    if grossier :
         parameters.lineairefs = -1
+        parameters.lineairebody = -1
+        parameters.is_bs_gs = 0
+        parameters.grossier = -1
     else :
         parameters.lineairefs = 0
-        
-    if lineairebody :
-        parameters.lineairebody = -1
-    else :
         parameters.lineairebody = 0
+        parameters.is_bs_gs = -1
+        parameters.grossier = 0
         
+
     parameters.nt = nt
     
     
     # Creating the geometry
     api_wsc.api_geometry()
 
+    tc = time.time()
     
     # Creating the mesh
     api_wsc.api_mesh()
     
-    
-
-
+    td = time.time()
     # N_f, N_n, N_body = api_wsc.import_mesh_dim()
     # 
     # L_P, L_ds, L_T, L_G, L_N, L_Rmax, L_type = api_wsc.import_mesh(N_f, N_n)
@@ -57,10 +64,8 @@ def calcul(lineairefs, lineairebody, nt, io_WP, io_F, filestate_in = "", filesta
             
     api_wsc.save_mesh_ci()
     
-    print("voila")
-    exit()
-    # 
-       #      
+  
+    te = time.time()
     
     t1 = time.time()
 
@@ -71,17 +76,26 @@ def calcul(lineairefs, lineairebody, nt, io_WP, io_F, filestate_in = "", filesta
     api_wsc.api_parareal_write_wp(io_WP,1)
 
     
+    
+    if (grossier and parameters.grossier_init == 0) :
+        api_wsc.api_init_lineaire()
+        parameters.grossier_init = -1
+        
+        
+
+    
+    print("trkkedpkedpkoedpko", tb-ta,tc-tb,td-tc,te-td)
 
     # Temporal loop
     for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
-    
+
      
-        if (jt-1)%80 == 0 and jt != 1 :
-            api_wsc.forcedremesh = -1
-        else :
-            api_wsc.forcedremesh = 0
-        
-        
+        # if (jt-1)%80 == 0 and jt != 1 :
+        #     api_wsc.forcedremesh = -1
+        # else :
+        #     api_wsc.forcedremesh = 0
+        # 
+        # 
         
 
         
@@ -101,7 +115,7 @@ def calcul(lineairefs, lineairebody, nt, io_WP, io_F, filestate_in = "", filesta
         # RK4 loop
         for jk in range(1,4+1): # +1 to reach jk = 4
 
-    
+
             # Computation of the time step of the RK4 step and the current time
             api_wsc.api_time_step_current_time(jt,jk)
 
@@ -153,18 +167,21 @@ def calcul(lineairefs, lineairebody, nt, io_WP, io_F, filestate_in = "", filesta
     
             if (parameters.deformmesh == -1): # -1 = True
                 api_wsc.api_meshvel()
-            
-            
+       
             #Resolution du probleme surfacique
             api_wsc.api_solbvp(False)
             
+       
 
             # Computation of the gradient on the floater (surface and normal gradient)
             api_wsc.api_gradient()
     
+    
+      
             # Computation of DPhiDt and DEtaDt and spatial differentiations
             api_wsc.api_derive()
     
+            
             # Hydrodynamic loads
             if (parameters.freebodies == -1): # -1 = True
     
@@ -228,7 +245,10 @@ def calcul(lineairefs, lineairebody, nt, io_WP, io_F, filestate_in = "", filesta
     
             # Creating of the internal state vector for this RK step
             api_wsc.api_rk_manager(jk)
-    
+        
+        
+            
+          
             #----------------------------------------------------------------------------------
             #               Preparation of the state vector for the next RK4 step
             #----------------------------------------------------------------------------------
@@ -281,6 +301,10 @@ def calcul(lineairefs, lineairebody, nt, io_WP, io_F, filestate_in = "", filesta
 
     t2 = time.time()
     
+    tc = time.time()
+    
+    print("teeemmmps", tb-ta,tc-tb)
+    
     print("Temps total : {}".format(t2-t1))
 
     
@@ -292,7 +316,6 @@ api_wsc.api_open_file_debug()
 
 
 N_iterations = 10
-
 N_ordis = 40
 
 io_WP = 7988
@@ -300,14 +323,17 @@ io_F = 4524
 
 
 
-# api_wsc.api_execution('ws.in','test.geom')
-
-
-
 api_wsc.api_parareal_init('ws.in','test.geom', N_iterations, N_ordis)
+
+
+
+parameters.grossier_init = 0
+
 pas_ordi = parameters.nt // N_ordis # A affiner
 
 
+
+ta = time.time()
 
 # Initialisation
 
@@ -335,7 +361,7 @@ for i_ordi in range(N_ordis):
     
     filestate_out = "output_WP/lambda_{}_{}.dat".format(0, i_ordi+1)
     
-    calcul(False, False, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
+    calcul(True, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
     
 
     api_wsc.api_parareal_save_g(0, i_ordi)
@@ -353,7 +379,11 @@ api_wsc.print_file("------------------------------------------------------------
 api_wsc.print_file("", 1111)
 
 
-exit()
+tb = time.time()
+
+# print(tb-ta)
+# 
+# exit()
 
 
 # Iterations
@@ -387,7 +417,7 @@ for i_iter in range(N_iterations) :
     
         filestate_out = ""
 
-        calcul(False, False, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
+        calcul(False, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
 
         api_wsc.api_parareal_save_f(i_ordi)
         
@@ -414,7 +444,7 @@ for i_iter in range(N_iterations) :
         
         filestate_out = ""
 
-        calcul(True, True, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
+        calcul(True, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
 
         api_wsc.api_parareal_save_g(i_iter+1, i_ordi)
 

@@ -200,7 +200,7 @@ subroutine CoeffInfl(Mesh, CD, CS, Nnodes, bornes)
     
     !$ oend = omp_get_wtime()
     
-    write(*,*) "Temps du calcul des coefficients d'influence : ", oend - ostart
+    !write(*,*) "Temps du calcul des coefficients d'influence : ", oend - ostart
     
     ! Calcul de l'Angle Solide
     if(not(present(bornes)))then
