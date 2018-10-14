@@ -6,15 +6,17 @@ implicit none
 
 contains
 
-!
-!
+
+
 ! Dans cette subroutine on calcule les matrices A des deux systemes et onles inverse
-subroutine initialisation_lineaire(Ecoulement, Mesh, Nnodes, CD, CS)
+subroutine initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, CD, CS)
 
     !f2py integer*1, dimension(1000)        :: Ecoulement
     type(TEcoulement)                       :: Ecoulement               ! Flow parameters.
     !f2py integer*1, dimension(1000)        :: Mesh
     type(TMaillage)                         :: Mesh                     ! Mesh.
+    !f2py integer*1, dimension(1000)        :: Mesh_ref
+    type(TMaillage)                         :: Mesh_ref                 ! Mesh which is used by coarse propagator
 
     integer                                 :: Nnodes
     real(rp), dimension(Nnodes,Nnodes)      :: CD, CS                   ! Influence coefficient matrices.
@@ -26,29 +28,40 @@ subroutine initialisation_lineaire(Ecoulement, Mesh, Nnodes, CD, CS)
     real(rp) :: det
     integer :: N,i,j
     
-
     
+
+
     ! Allocation.
     N = Mesh%Nsys
     allocate(A(N,N))
-    allocate(Ainv1(N,N)) 
-    allocate(cond1(N)) 
+    allocate(Mesh%Ainv1(N,N))
+    allocate(Mesh%cond1(N)) 
     
     !Calculation of the coeffiient of influence
     CD = 0._RP ; CS = 0._RP
     call CoeffInfl(Mesh, CD, CS,N)
-    
+
     ! Building of A, B and initialization of Sol.
     option = .false. !BVP sur phi
-    call Calcul_A(CD, CS, Ecoulement, Mesh, A, cond1, Nnodes, N)
-    
+    call Calcul_A(CD, CS, Ecoulement, Mesh, A, Mesh%cond1, Nnodes, N)
+ 
     ! Inversion of A
-    call inv_matrice(A,Ainv1, N)
+    call inv_matrice(A,Mesh%Ainv1, N)
+    
+    
+    !Copy mesh
+    call NewMaillage(Mesh_ref, Mesh%Nnoeud,Mesh%NBody)
+    call CopyMaillage(Mesh_ref, Mesh)
+    allocate(Mesh_ref%ainv1(N,N), Mesh_ref%cond1(N))
+        
+    Mesh_ref%ainv1 = Mesh%ainv1
+    Mesh_ref%cond1 = Mesh%cond1
+    
 
     ! Deallocating.
     deallocate(A)
 
-end subroutine
+end subroutine initialisation_lineaire
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -205,7 +218,6 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
     real(rp) :: ta,tb,tc,td,te
 
     
-    
     call CPU_TIME(ta)
     
     ! This subroutine computes the influence coefficients, creates the linear system and solves it.
@@ -240,8 +252,7 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
             bool = .false.
         end if
     end if
-    
-    
+  
         
     ! Computation of the influence coefficients
     if(CCI .and. DeformMesh .and. bool)then ! Partial computation of the influence coefficients, the mesh is moving and no remeshing.
@@ -459,15 +470,13 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
 #endif
     end if
     
-    
-    
-    
+
     call CPU_TIME(tb)
     
     ! Building of A, B and initialization of Sol.
         
-    if (grossier) then
-        call calcul_B(CD, CS, Ecoulement, Mesh, B, cond1, Nnodes,N, opt)
+    if (bool_coarse) then
+        call calcul_B(CD, CS, Ecoulement, Mesh, B, Mesh%cond1, Nnodes,N, opt)
     else
         call SystLin(CD, CS, Ecoulement, Mesh, A, B, Sol,Nnodes,N, Option)
     end if
@@ -487,8 +496,8 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
     ! Solving of the linear system.
     if(iprint>0) print*,"Resolution système linéaire ..."
       
-    if (grossier) then  
-        sol = matmul(Ainv1,B)
+    if (bool_coarse) then  
+        sol = matmul(Mesh%Ainv1,B)
     else
         if (Solv==0) then
             call GMRES(A, B, Sol, N, ierror)
@@ -497,7 +506,7 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
         end if
     end if
 
-    
+   
     call CPU_TIME(td)
     if(not(Opt))then
 #ifdef _OPENMP
@@ -550,8 +559,9 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
     real(rp), dimension(Nnodes)                     :: cond                             ! Inverse of the diagonal coefficients.
     
     ! This subroutine builds A
-
-        
+    write(1111,*) shape(cond)
+    write(1111,*) shape(A)
+    write(1111,*) "debut"
     ! Only the first body can be above the free surface, otherwise a bug will appear.
     do j = Int_Body,Mesh%NBody
         if(not(Mesh%Body(j)%Active) .and. j.ne.Mesh%NBody)then
@@ -560,7 +570,7 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
             pause
         end if
     end do
-    
+    write(1111,*) "ilieu"
     ! Boundaries for the nodes and the panels.
     if(cuve_ferme)then
         if(Mesh%Body(Mesh%NBody)%Active)then
@@ -571,13 +581,16 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
     else
         N = reshape([1,Mesh%FS%IndFS(1),Mesh%Body(Int_Body)%IndBody(1),Mesh%Nsys,Mesh%FS%IndFS(3),Mesh%Body(Mesh%NBody)%IndBody(3)],(/3,2/)) 
     end if
-
+    write(1111,*) "calcul de A"
     ! Building A
     A(N(1,1):N(1,2),N(2,1):N(2,2)) = CS(N(1,1):N(1,2),N(2,1):N(2,2)) ! CS(:,FS)
     A(N(1,1):N(1,2),N(3,1):N(3,2)) = -CD(N(1,1):N(1,2),N(3,1):N(3,2)) ! -CD(:,Ext) -CD(:,B0) ... -CD(:,Bn)
   
-
+    write(1111,*) A(1,1)
+    write(1111,*) cond(1)
+    write(1111,*) "debut de cond"
     do j = 1,N(1,2)
+        write(1111,*) j
 	    if (abs(A(j,j)).GT.Epsilon) then
 	        cond(j) = 1._RP/A(j,j)
 	    else
@@ -586,12 +599,14 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
         end if
     end do
     
-        
+    write(1111,*) "cnd ?" 
     do j = 1,N(1,2)
         do k = 1,N(1,2)
             A(k,j) = A(k,j)*cond(k)
         end do
     end do
+    
+    write(1111,*) "fin"
         
 end subroutine Calcul_A
 
@@ -620,7 +635,7 @@ subroutine Calcul_B(CD, CS, Ecoulement, Mesh, B, cond, Nnodes,Nsys, opt)
     
     ! This subroutine builds B
 
-        
+
     ! Only the first body can be above the free surface, otherwise a bug will appear.
     do j = Int_Body,Mesh%NBody
         if(not(Mesh%Body(j)%Active) .and. j.ne.Mesh%NBody)then
@@ -629,7 +644,7 @@ subroutine Calcul_B(CD, CS, Ecoulement, Mesh, B, cond, Nnodes,Nsys, opt)
             pause
         end if
     end do
-    
+
     ! Boundaries for the nodes and the panels.
     if(cuve_ferme)then
         if(Mesh%Body(Mesh%NBody)%Active)then
@@ -643,6 +658,7 @@ subroutine Calcul_B(CD, CS, Ecoulement, Mesh, B, cond, Nnodes,Nsys, opt)
 
     ! Building B
     allocate(Phi(N(1,2)),DPhiDn(N(1,2)))
+
     
     if(opt)then
         ! BVP on DPhiDt.
@@ -653,9 +669,6 @@ subroutine Calcul_B(CD, CS, Ecoulement, Mesh, B, cond, Nnodes,Nsys, opt)
         Phi(N(2,1):N(2,2)) = Ecoulement%Phi(N(2,1):N(2,2))%perturbation
         DPhiDn(N(3,1):N(3,2)) = Ecoulement%DPhiDn(N(3,1):N(3,2))%perturbation
     end if
-
-    Phi(N(2,1):N(2,2)) = Ecoulement%Phi(N(2,1):N(2,2))%perturbation
-    DPhiDn(N(3,1):N(3,2)) = Ecoulement%DPhiDn(N(3,1):N(3,2))%perturbation
 
 
     B = 0._RP
@@ -670,7 +683,6 @@ subroutine Calcul_B(CD, CS, Ecoulement, Mesh, B, cond, Nnodes,Nsys, opt)
             B(j) = B(j) - CS(j,k)*DPhiDn(k) ! -CS(:,Ext)*Phi_n(Ext) -CS(:,B0)*Phi_n(B0) ... -CS(:,Bn)*Phi_n(Bn)
         end do    
     end do
-
     deallocate(Phi,DPhiDn)
     
     B = B*cond

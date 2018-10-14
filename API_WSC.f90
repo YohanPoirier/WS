@@ -16,6 +16,10 @@ module API_WSC
     !f2py integer*1, dimension(1000)        :: L_Bodies
     type(T_liste_Bodies) :: L_Bodies  ! Liste des corps
     
+    !f2py integer*1, dimension(1000)        :: Mesh_ref
+    type(TMaillage)                         :: Mesh_ref                                      ! Linear mesh which will be used in coarse propagator
+
+
     ! Variables of Main (Maillage -> Mesh ; Mesh -> Grid)
     !f2py integer*1, dimension(1000)        :: Mesh
     type(TMaillage)                         :: Mesh                                         ! Final mesh (named Maillage in Main.f90).
@@ -175,6 +179,29 @@ module API_WSC
     
     ! Yohan ----------------------------------------
     
+    
+    subroutine api_import_mesh_ecoulement()
+        
+        call DelEcoulement(Ecoulement)
+        call read_State(fileState, Mesh, Ecoulement, Starting_time, jFiltering)
+        
+        Mesh%Nsys = Mesh%FS%IndFS(3)
+        Mesh%Nfsys = Mesh%FS%IndFS(4)
+        
+        do nc = 1, Mesh%NBody
+            if (nc.eq.1 .or. fgeom_vect%Active(nc-1)) then
+                Mesh%Nsys = Mesh%Nsys + Mesh%Body(nc)%IndBody(3) - Mesh%Body(nc)%IndBody(1) + 1
+                Mesh%Nfsys = Mesh%Nfsys + Mesh%Body(nc)%IndBody(4) - Mesh%Body(nc)%IndBody(2) + 1
+            end if
+        end do
+        
+        
+        call GeomInit(Mesh, fgeom_vect, 0._RP, InputData,.false., ierror)
+
+    end subroutine
+    
+    
+
     ! Subroutine pour enregistrer le maillage et les coefficients d'influence (pour tester le GPU)
     subroutine save_mesh_CI()
     
@@ -212,27 +239,22 @@ module API_WSC
         end do
     
         close(unit = 9354)
-        
+ 
         
         open(file = "cd.txt", unit = 9354)
         
-        
 
-        
         do i = 1, 1
             do j = 1, Mesh%Nnoeud
                 write(9354,*) i,j,CD(i,j)
             end do
         end do
-        
-        
+
         close(unit = 9354)
-        
-        
+ 
     end subroutine
     
-    
-    
+
     subroutine print_file(text, io)
         character (len=50),intent(in) :: text
         integer :: io
@@ -241,11 +263,7 @@ module API_WSC
         
     end subroutine print_file
         
-    
-    
-        
-        
-        
+  
     subroutine import_temp(temp_py)
         real(rp), dimension(4,5000) :: temp_py
         !f2py intent(out) :: temp_py
@@ -258,7 +276,7 @@ module API_WSC
     ! Parareal
     
     subroutine API_open_file_debug()
-        open(unit=1111,file="debug_file.txt",iostat=ios)
+        open(unit=1111,file="debug_file.dat",iostat=ios)
         
     end subroutine API_open_file_debug
     
@@ -1028,19 +1046,29 @@ module API_WSC
     
     
     
+    subroutine api_interpolation_mesh_ref()
     
+        integer :: n
         
+        n = mesh%nsys
+    
+        allocate(mesh%ainv1(n,n), mesh%cond1(n))
+        
+        mesh%ainv1 = mesh_ref%ainv1
+        mesh%cond1 = mesh_ref%cond1
+    
+    end subroutine
+    
+    
+    
     subroutine API_init_lineaire()
     
-        call initialisation_lineaire(Ecoulement, Mesh, Nnodes, CD, CS)
+        call initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, CD, CS)
         
     end subroutine API_init_lineaire
     
     
-    
-    
-    
-    
+
     
     subroutine API_solBVP(bool_CUDA)
     
@@ -1048,12 +1076,11 @@ module API_WSC
         ! This subroutine wraps the subroutine solBVP.
         
         time2 = 0._RP ! To be deleted.
+        
         if (bool_CUDA) then
             call solBVP_cuda( Ecoulement, Mesh, CD, CS, Nnodes,time2,boolRemesh, rCI)
         else
-            !allocate(A(Mesh%Nsys,Mesh%Nsys), B(Mesh%Nsys))
-            !call solBVP3( Ecoulement, Mesh, CD, CS,A,B, Nnodes,time2,boolRemesh, rCI)
-            call solBVP( Ecoulement, Mesh, CD, CS, Nnodes,time2,boolRemesh, rCI)
+            call solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time2,boolRemesh, rCI)
         end if
         
         

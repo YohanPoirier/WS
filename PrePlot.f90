@@ -1469,6 +1469,12 @@ subroutine Write_State(Mesh,Ecoulement,t,jt,Starting_time,jFiltering)
     
 end subroutine Write_State
 
+! Yohan :
+!PResque comme write_state mais :
+!-on peut preciser le fichier
+!-on enregistre aussi les facettes
+
+
 
 subroutine Write_State2(Mesh,Ecoulement,t,jt,Starting_time,jFiltering, filename)
     
@@ -1574,7 +1580,22 @@ subroutine Write_State2(Mesh,Ecoulement,t,jt,Starting_time,jFiltering, filename)
         end if
             
     end do
-        
+    
+    
+    ! ------------------------------------
+    !           Panels
+    ! -------------------------------------
+    
+    ! Nnoeud
+    write(ioState,'(I)') Mesh%Nfacette
+
+            
+    ! Indexes of the 3 nodes/vertexes of the panel
+    do j = 1, Mesh%Nfacette
+        write(ioState,'(3I)') Mesh%Tfacette(j)%Tnoeud
+    end do
+            
+
     ! Closing.
     close(ioState)
 
@@ -1699,7 +1720,7 @@ subroutine read_State(fileState,Mesh,Ecoulement,Starting_time,jFiltering)
         ! New TMaillage.
         call NewMaillage(Mesh,Nnoeud,NBodies+1) ! +1 for the tank.
         Mesh%Nnoeud = Nnoeud
-        
+
         ! NBody
         Mesh%NBody = NBodies+1 ! 1 for the tank.
         
@@ -1749,8 +1770,10 @@ subroutine read_State(fileState,Mesh,Ecoulement,Starting_time,jFiltering)
         end do
         
         ! New TEcoulement.
+
         call NewEcoulement(Ecoulement,Mesh%Nnoeud)
         call IniEcoulement(Ecoulement,Mesh%Nnoeud, 0._RP) ! %incident and %perturbation are 0.
+
         
         ! Phi_p, Eta_p.
         Phi_Eta = 0._RP
@@ -1780,6 +1803,18 @@ subroutine read_State(fileState,Mesh,Ecoulement,Starting_time,jFiltering)
             
         end do
         
+        ! ----------------------------------------------
+        !              Panels
+        ! ----------------------------------------------
+        
+        call read_param_only(ioState,Mesh%Nfacette)
+
+        ! Vertex/indexes of the panel
+        do j = 1, Mesh%Nfacette
+            call read_param_only(ioState,Mesh%Tfacette(j)%Tnoeud,3)
+        end do
+
+        
         ! Closing.
         close(ioState)
         
@@ -1792,6 +1827,7 @@ subroutine read_State(fileState,Mesh,Ecoulement,Starting_time,jFiltering)
     9999 continue
     
 end subroutine read_State
+
 
 subroutine Extract_Mesh_Body(filemesh,NewMesh,fgeom_vect,InputData)
     

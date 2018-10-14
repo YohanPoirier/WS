@@ -39,12 +39,12 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         parameters.lineairefs = -1
         parameters.lineairebody = -1
         parameters.is_bs_gs = 0
-        parameters.grossier = -1
+        parameters.bool_coarse = -1
     else :
         parameters.lineairefs = 0
         parameters.lineairebody = 0
         parameters.is_bs_gs = -1
-        parameters.grossier = 0
+        parameters.bool_coarse = 0
         
 
     parameters.nt = nt
@@ -52,13 +52,19 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
     
     # Creating the geometry
     api_wsc.api_geometry()
+    
+    
+    
+    if filestate_in == "" :
 
-    tc = time.time()
+        # Creating the mesh
+        api_wsc.api_mesh()
+    else :
+        api_wsc.api_import_mesh_ecoulement()
+
+
+
     
-    # Creating the mesh
-    
-    
-    api_wsc.api_mesh()
     
     td = time.time()
 
@@ -69,8 +75,8 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
     api_wsc.pre_temporal_loop()
           
 
-            
-    api_wsc.save_mesh_ci()
+    
+    #api_wsc.save_mesh_ci()
     
   
     te = time.time()
@@ -84,11 +90,19 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
     api_wsc.api_parareal_write_wp(io_WP,1)
 
     
+    print("chien")
     
-    if (grossier and parameters.grossier_init == 0) :
-        api_wsc.api_init_lineaire()
-        parameters.grossier_init = -1
+    
+    if (grossier):
+        if (parameters.bool_coarse_init == 0) :
+            print("chat")
+            api_wsc.api_init_lineaire()
+            parameters.bool_coarse_init = -1
+        else:
+            api_wsc.api_interpolation_mesh_ref()
         
+        
+    print("chien")
         
     #print("trkkedpkedpkoedpko", tb-ta,tc-tb,td-tc,te-td)
 
@@ -103,16 +117,13 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         # 
         # 
         
-
-        
-        
+     
         N_f, N_n, N_body = api_wsc.import_mesh_dim()
         
         
         t2 = time.time()
 
-
-
+        
         api_wsc.print_file("N_ noeuds = {} , N_facettes = {}, N_body = {}".format(N_n, N_f, N_body), 1111)
         api_wsc.print_file("Pas de temps : {} ({}s) ".format(jt, t2-t1), 1111)
         api_wsc.print_file("Temps simule : ".format(api_wsc.ti), 1111)
@@ -132,7 +143,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
             # Lissage
             if((jk == 1) and (jt !=1)):
                 api_wsc.api_lissage(jt)
-    
+            
             
             #----------------------------------------------------------------------------------
             #           Computation of the time differentiation of the state vector
@@ -161,23 +172,26 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
             elif(jk != 1):
                 
                 api_wsc.boolremesh = False # 0 = False
-    
-            
+   
+
             # Reinitialisation de Mesh0 et Ecoulement0 avant la resolution de la passe RK1
             if (jk == 1):
                 api_wsc.initialization_mesh0_ecoulement0()
     
+            
             # Body condition
             api_wsc.api_bodycondition()
     
             # Calcul des vitesses des noeuds du maillage (updating the velocity of the nodes)
-    
+     
             if (parameters.deformmesh == -1): # -1 = True
                 api_wsc.api_meshvel()
 
+            
             #Resolution du probleme surfacique
             api_wsc.api_solbvp(False)
-
+     
+            
             # Computation of the gradient on the floater (surface and normal gradient)
             
             api_wsc.api_gradient()
@@ -251,9 +265,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
             # Creating of the internal state vector for this RK step
             api_wsc.api_rk_manager(jk)
         
-        
-            
-          
+
             #----------------------------------------------------------------------------------
             #               Preparation of the state vector for the next RK4 step
             #----------------------------------------------------------------------------------
@@ -328,7 +340,7 @@ api_wsc.api_parareal_init('ws.in','test.geom', N_iterations, N_ordis)
 
 
 
-parameters.grossier_init = 0
+parameters.bool_coarse_init = 0
 
 pas_ordi = parameters.nt // N_ordis # A affiner
 

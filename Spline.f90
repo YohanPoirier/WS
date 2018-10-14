@@ -242,7 +242,6 @@ subroutine GradientFS(Mesh, Ecoulement)
             deallocate(Pvoisin, A, B)
     
         else
-            write(1111,*) "youpiiiiiiiiiiiiiiiiiiiiiiii"
             ! Linear Panel approximation.
             Ecoulement%GEta(1:3,j)%perturbation = 0._RP
             Ecoulement%GPhi(1:3,j)%perturbation = 0._RP

@@ -93,17 +93,10 @@ integer                             :: NThreads                     ! Number of 
 integer                             :: Tcase                        ! Choix de CL pour déplacement, vitesse et accélération du corps dans Incident      Useless !!!
 
 
+! -----PARAREAL---------
 
-! -- Parareal ------------------------!
-
-logical                                     :: grossier
-logical                                     :: grossier_init
-real(rp), dimension(:,:), allocatable       :: Ainv1, Ainv2   ! Matrices inverted of the two BVP
-real(rp), dimension(:), allocatable         :: cond1, cond2   ! Conditionnement matrices  of the two BVP
-    
-
-
-
+logical                                     :: bool_coarse
+logical                                     :: bool_coarse_init
 
 
 
