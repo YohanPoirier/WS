@@ -43,10 +43,8 @@ subroutine GeomInit(Mesh, fgeom_vect, t, InputData,bool, ierror)
     error = .false.
     
     
-    write(1111,*) "chhhhiiiieeeeeeennnnnnnnnnnnnnnn"
-    
     ! same_topo = false when creating the mesh or remeshing;
-    !           = true if no remeshing.
+    !           = true if no remeshing.z
     
     if(present(bool))then
         same_topo = bool

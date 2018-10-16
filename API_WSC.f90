@@ -179,6 +179,71 @@ module API_WSC
     
     ! Yohan ----------------------------------------
     
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !            Subroutines to create a developed temporal loop in Python
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+
+    
+    subroutine Pre_Temporal_loop_parareal()
+            
+        ! This subroutine calls all the subroutines which are used before the beginning of the temporal loop.
+        
+        ! Error.
+        ierror = 0
+        
+        ! ForcedRemesh and CrossingFS.
+        ForcedRemesh = .false.
+        CrossingFS = .false.
+        
+        ! nRemesh.
+        nRemesh = 0
+        
+        ! jFiltering.
+        jFiltering = 0
+        
+        ! Nnodes and Nnodes_FS.
+        Nnodes = Mesh%Nnoeud
+        Nnodes_FS = Mesh%FS%IndFS(3) - Mesh%FS%IndFS(1) + 1
+        
+        ! Allocation.
+        allocate(IndBody_former(2,NBodies))
+        IndBody_former = 0._RP
+        NumBodyNodes = 0
+        
+        jj = 1
+        do nc = Int_Body,Mesh%NBody
+            if(Mesh%Body(nc)%Active)then
+                IndBody_former(1,jj) = Mesh%Body(nc)%IndBody(1)
+                IndBody_former(2,jj) = Mesh%Body(nc)%IndBody(3)
+                NumBodyNodes = NumBodyNodes + IndBody_former(2,jj) - IndBody_former(1,jj) + 1
+                jj = jj + 1
+            end if
+        end do
+        
+        allocate(t(nt))
+        allocate(time_end(nt))
+        allocate(CS(Nnodes,Nnodes), CD(Nnodes,Nnodes))
+        allocate(RK(Nnodes_FS,4,2))
+        allocate(RKVBody(6,4,Nbodies),RKABody(6,4,Nbodies))
+        if (DeformMesh) allocate(RKVel(3,Nnodes,4)) ! RKVel != RK
+        if (FiniteDifference_ForceCalcul) then
+            size_Phi = NumBodyNodes
+            allocate(Phi(NumBodyNodes))
+            Phi = 0._RP
+        end if
+        
+        ! Time vector
+        call Time_vector(t,nt,periode,InputData)
+        
+        ! Initialization of the output files
+        call PrePlots(InputData,Mesh%NBody,get_State)
+        
+        ! Initialization of Mesh0, Ecoulement, Ecoulement0 and eventually EcoulementDF for the updating at the end of each RK4 step
+        call Initialization_Mesh_Ecoulement(Mesh,Mesh0,Ecoulement,Ecoulement0,t(1),EcoulementDF,InputData)
+
+        
+    end subroutine Pre_Temporal_loop_parareal
     
     subroutine api_import_mesh_ecoulement()
         
@@ -1048,15 +1113,44 @@ module API_WSC
     
     subroutine api_interpolation_mesh_ref()
     
-        integer :: n
+        integer :: N
+        type(TBody), dimension(:), allocatable      :: Body_copy     ! Table des corps du maillage.
+        integer :: nc
+
+        ! Interpolation
         
-        n = mesh%nsys
-    
-        allocate(mesh%ainv1(n,n), mesh%cond1(n))
+        call Interpolation_FS(Mesh,Mesh_ref,Ecoulement,ti,.true.,ierror)
+      
+        !Copy mesh (but not the body)
         
-        mesh%ainv1 = mesh_ref%ainv1
-        mesh%cond1 = mesh_ref%cond1
-    
+
+        allocate(Body_copy(Mesh%NBody))
+        Body_copy = Mesh%Body
+
+        N = Mesh_ref%Nsys
+        
+        call DelMaillage(Mesh)
+        call NewMaillage(Mesh, Mesh_ref%Nnoeud,Mesh_ref%NBody)
+        call CopyMaillage(Mesh, Mesh_ref)
+
+        ! On garde toutes les variables des corps, sauf les indices qui dépendent du reste du maillage
+        Mesh%Body = Body_copy
+        do nc = 1, Mesh%NBody
+            Mesh%Body(nc)%IndBody = Mesh_ref%Body(nc)%IndBody
+        end do
+
+        allocate(Mesh%ainv1(N,N), Mesh%cond1(N))
+        allocate(Mesh%CD(N,N), Mesh%CS(N,N))
+        
+        
+        Mesh%ainv1 = Mesh_ref%ainv1
+        Mesh%cond1 = Mesh_ref%cond1
+        Mesh%CD = Mesh_ref%CD
+        Mesh%CS = Mesh_ref%CS
+
+        deallocate(Body_copy)
+        
+
     end subroutine
     
     
@@ -1270,7 +1364,9 @@ module API_WSC
                 
         ! This subroutine wraps the subroutine Writting_time_info.
         
-        call Writting_time_info(t,time_end,time_begin,tmoy,jt,get_State,jt_init)
+        call Writting_time_info_2(time_begin,jt,nt)
+        !call Writting_time_info(t,time_end,time_begin,tmoy,jt,get_State,jt_init)
+        
         
     end subroutine API_Writting_time_info
     

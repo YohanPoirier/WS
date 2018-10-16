@@ -622,8 +622,11 @@ subroutine Derive(t, Ecoulement, Mesh)
 	
 	        Ecoulement%DEtaDt(j)%perturbation = -Ecoulement%DPhiDn(j)%perturbation + dot_product(Vel,GEta)*(1._RP-damp2)
 			Ecoulement%DEtaDt(j)%perturbation = damp1*Ecoulement%DEtaDt(j)%perturbation - damp2*Ecoulement%Eta(j)%perturbation 
+            
     	end do
-
+        
+        
+        
 	else
     	do j = Mesh%FS%IndFS(1),Mesh%FS%IndFS(3)
 
@@ -674,8 +677,8 @@ subroutine Derive(t, Ecoulement, Mesh)
 	        Ecoulement%DEtaDt(j)%perturbation = damp1*Ecoulement%DEtaDt(j)%perturbation - damp2*Eta 
             
         end do
-    end if
-
+    end if    
+    
 end subroutine Derive
 
 subroutine Initialisation(Ecoulement, Mesh, t,InputData)
@@ -792,6 +795,47 @@ subroutine Initialisation(Ecoulement, Mesh, t,InputData)
     endif
     
 end subroutine Initialisation
+
+
+subroutine Writting_time_info_2(time_begin,jt,nt)
+  
+    real(rp),intent(in)                     :: time_begin   ! Time parameters
+    real(rp)                                :: time_present,time_remaining ! Time
+    integer,intent(in)                      :: jt,nt         ! Time loop parameter
+
+    integer                                 :: heures, minutes, secondes                              
+
+    ! This subroutine displays the time information at each time step on the command window.
+    
+    ! Information are written for the NEXT time step
+
+    call cpu_time(time_present)
+
+        
+    10 format('Completion = ',i3,'%')
+    20 format('Iteration n ', i3, '/', i3)  
+    
+    
+    write(*,10) , 100*jt/nt
+    write(*,20) , jt,nt
+    
+    30 format('Temps restant estime : ',i3,' h, ',i3,' min', i3, ' s')
+       
+    
+    time_remaining = (time_present - time_begin)*(nt-jt)/jt
+    
+    heures = int(time_remaining/3600)
+    minutes = int((time_remaining - 3600*heures)/60)
+    secondes = int(time_remaining - 3600*heures - 60*minutes)
+    
+
+    write(*,30) , heures, minutes, secondes
+  
+
+
+    40 continue
+    
+end subroutine Writting_time_info_2
 
 subroutine Writting_time_info(t,time_end,time_begin,tmoy,jt,get_State,jt_init)
     

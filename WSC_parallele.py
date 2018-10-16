@@ -16,12 +16,12 @@ import ecriture_data as ec
 def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
 
 
-
+    global aff
     
 
         
         
-        
+    t1 = time.time()
     ta = time.time()
     
     
@@ -53,69 +53,56 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
     # Creating the geometry
     api_wsc.api_geometry()
     
-    
+
+    tb1 = time.time()
     
     if filestate_in == "" :
-
-        # Creating the mesh
+    # Creating the mesh
         api_wsc.api_mesh()
     else :
+    # Importing the mesh
         api_wsc.api_import_mesh_ecoulement()
 
-
-
-    
-    
-    td = time.time()
-
-
+    tc = time.time()
 
 
     # Calling all the subroutines which are used before the beginning of the temporal loop.
     api_wsc.pre_temporal_loop()
           
 
-    
+    td = time.time()
     #api_wsc.save_mesh_ci()
     
-  
-    te = time.time()
-    
-    t1 = time.time()
 
     api_wsc.ti = parameters.t0
     
-    
-    
+
     api_wsc.api_parareal_write_wp(io_WP,1)
 
-    
-    print("chien")
-    
-    
+
     if (grossier):
         if (parameters.bool_coarse_init == 0) :
-            print("chat")
             api_wsc.api_init_lineaire()
             parameters.bool_coarse_init = -1
         else:
             api_wsc.api_interpolation_mesh_ref()
-        
-        
-    print("chien")
-        
+
+            N_f, N_n, N_body = api_wsc.import_mesh_dim()
+
+    te = time.time()
+    
+    
+    
+
     #print("trkkedpkedpkoedpko", tb-ta,tc-tb,td-tc,te-td)
 
     # Temporal loop
     for jt in range(1,parameters.nt+1): # +1 to reach jt = nt
-
      
         # if (jt-1)%80 == 0 and jt != 1 :
         #     api_wsc.forcedremesh = -1
         # else :
         #     api_wsc.forcedremesh = 0
-        # 
-        # 
         
      
         N_f, N_n, N_body = api_wsc.import_mesh_dim()
@@ -133,13 +120,13 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         for jk in range(1,4+1): # +1 to reach jk = 4
             
 
-
             # Computation of the time step of the RK4 step and the current time
             api_wsc.api_time_step_current_time(jt,jk)
 
             # Influence coefficient parameter
             api_wsc.api_rci_manager(jk)
-    
+            
+
             # Lissage
             if((jk == 1) and (jt !=1)):
                 api_wsc.api_lissage(jt)
@@ -150,16 +137,18 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
             #----------------------------------------------------------------------------------
     
             # Computing the incident flow
+
             api_wsc.api_incident()
-    
+
             # Plots
             if(jk == 1):
                 api_wsc.api_plots()
                 
+
             
-    
             # New mesh if necessary
-            if ((jk == 1) and (jt != 1) and parameters.deformmesh == -1):
+            #if ((jk == 1) and (jt != 1) and parameters.deformmesh == -1):
+            if ((jk == 1) and parameters.deformmesh == -1):
                 # New mesh
                 api_wsc.api_regeneration_mesh()
                 
@@ -172,7 +161,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
             elif(jk != 1):
                 
                 api_wsc.boolremesh = False # 0 = False
-   
+
 
             # Reinitialisation de Mesh0 et Ecoulement0 avant la resolution de la passe RK1
             if (jk == 1):
@@ -186,11 +175,12 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
      
             if (parameters.deformmesh == -1): # -1 = True
                 api_wsc.api_meshvel()
-
+    
             
             #Resolution du probleme surfacique
+
             api_wsc.api_solbvp(False)
-     
+
             
             # Computation of the gradient on the floater (surface and normal gradient)
             
@@ -257,7 +247,8 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
                         api_wsc.api_finite_differences(jt)
                 else: # not(FiniteDifference_ForceCalcul)
                     api_wsc.forcebodymotion_solbvp()
-    
+                    
+            
             # Writting of the hydrodynamic loads in the output files
             if (jk == 1):
                 api_wsc.api_plotforces()
@@ -302,9 +293,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         
         api_wsc.api_parareal_write_wp(io_WP,1)
         
-
-
-    
+      
     if filestate_out != "":
         api_wsc.api_write_state(filestate_out,jt)
         
@@ -316,8 +305,10 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
     api_wsc.deallocating_temporal_loop()
 
     t2 = time.time()
-    
-
+    # 
+    # print("Temps pretemporal : ",td-tc)
+    # print("Temps geo : ",tb1-tb)
+    # print("Temps import : ", tc-tb1)
     print("Temps total : {}".format(t2-t1))
 
     
@@ -325,11 +316,11 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
 
 api_wsc.api_open_file_debug()
 
+aff = False
 
 
-
-N_iterations = 10
-N_ordis = 1
+N_iterations = 5
+N_ordis = 10
 
 io_WP = 7988
 io_F = 4524
@@ -339,6 +330,7 @@ io_F = 4524
 api_wsc.api_parareal_init('ws.in','test.geom', N_iterations, N_ordis)
 
 
+parameters.affich = 0
 
 parameters.bool_coarse_init = 0
 
@@ -373,10 +365,11 @@ for i_ordi in range(N_ordis):
         filestate_in = "output_WP/lambda_{}_{}.dat".format(0, i_ordi)
     
     filestate_out = "output_WP/lambda_{}_{}.dat".format(0, i_ordi+1)
-    
-    calcul(True, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
-    
 
+
+    calcul(True, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
+
+  
     api_wsc.api_parareal_save_g(0, i_ordi)
     
 
@@ -395,9 +388,6 @@ api_wsc.print_file("", 1111)
 tb = time.time()
 
 # print(tb-ta)
-# 
-exit()
-
 
 # Iterations
 
@@ -421,8 +411,9 @@ for i_iter in range(N_iterations) :
         
         filename = "output_WP/force_F_{}_{}.dat".format(i_iter, i_ordi)
         api_wsc.api_parareal_open_file_force(filename, io_F)
-        
-        
+            
+
+
         if i_ordi == 0 :
             filestate_in = ""
         else:
@@ -457,6 +448,10 @@ for i_iter in range(N_iterations) :
         
         filestate_out = ""
 
+        if i_ordi == 1 :
+            aff = True
+            
+            
         calcul(True, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
 
         api_wsc.api_parareal_save_g(i_iter+1, i_ordi)

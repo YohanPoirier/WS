@@ -1251,6 +1251,7 @@ subroutine PlotWaveElevation2(t,InputData,Mesh,Ecoulement, io, nc)
             ClosestPoints = k
         end if
     end do
+
         
     if(is_BS)then
             

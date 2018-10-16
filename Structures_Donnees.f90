@@ -111,7 +111,8 @@ type TMaillage
 	real(rp), dimension(5)                      :: DimTank  ! Dimensions of the tank ( Length/diameter, width/diameter, depth, damping dimension parameter, any other parameter). 
     real(rp), dimension(:,:), allocatable       :: Ainv1, Ainv2   ! Inverted matrices of the two BVP
     real(rp), dimension(:), allocatable         :: cond1, cond2   ! Conditionnement matrices  of the two BVP
-    
+    real(rp), dimension(:,:), allocatable       :: CD, CS   ! Influence coefficients
+
 end type TMaillage
 
 type TPotentiel

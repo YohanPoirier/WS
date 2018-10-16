@@ -34,16 +34,16 @@ subroutine initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, CD, CS)
     ! Allocation.
     N = Mesh%Nsys
     allocate(A(N,N))
-    allocate(Mesh%Ainv1(N,N))
-    allocate(Mesh%cond1(N)) 
+    allocate(Mesh%Ainv1(N,N), Mesh%cond1(N)) 
+    allocate(Mesh%CD(N,N), Mesh%CS(N,N))
     
-    !Calculation of the coeffiient of influence
+    ! Calculation of the coeffiient of influence
     CD = 0._RP ; CS = 0._RP
-    call CoeffInfl(Mesh, CD, CS,N)
+    call CoeffInfl(Mesh, Mesh%CD, Mesh%CS, N)
 
     ! Building of A, B and initialization of Sol.
     option = .false. !BVP sur phi
-    call Calcul_A(CD, CS, Ecoulement, Mesh, A, Mesh%cond1, Nnodes, N)
+    call Calcul_A(Mesh%CD, Mesh%CS, Ecoulement, Mesh, A, Mesh%cond1, N, N)
  
     ! Inversion of A
     call inv_matrice(A,Mesh%Ainv1, N)
@@ -53,9 +53,12 @@ subroutine initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, CD, CS)
     call NewMaillage(Mesh_ref, Mesh%Nnoeud,Mesh%NBody)
     call CopyMaillage(Mesh_ref, Mesh)
     allocate(Mesh_ref%ainv1(N,N), Mesh_ref%cond1(N))
-        
+    allocate(Mesh_ref%CD(N,N), Mesh_ref%CS(N,N))  
+    
     Mesh_ref%ainv1 = Mesh%ainv1
     Mesh_ref%cond1 = Mesh%cond1
+    Mesh_ref%CD = Mesh%CD
+    Mesh_ref%CS = Mesh%CS
     
 
     ! Deallocating.
@@ -476,10 +479,12 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
     ! Building of A, B and initialization of Sol.
         
     if (bool_coarse) then
-        call calcul_B(CD, CS, Ecoulement, Mesh, B, Mesh%cond1, Nnodes,N, opt)
+        call calcul_B(Mesh%CD, Mesh%CS, Ecoulement, Mesh, B, Mesh%cond1, N, N, opt)
     else
         call SystLin(CD, CS, Ecoulement, Mesh, A, B, Sol,Nnodes,N, Option)
     end if
+    
+
     
     call CPU_TIME(tc)
     
@@ -496,6 +501,7 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
     ! Solving of the linear system.
     if(iprint>0) print*,"Resolution système linéaire ..."
       
+
     if (bool_coarse) then  
         sol = matmul(Mesh%Ainv1,B)
     else
@@ -559,9 +565,7 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
     real(rp), dimension(Nnodes)                     :: cond                             ! Inverse of the diagonal coefficients.
     
     ! This subroutine builds A
-    write(1111,*) shape(cond)
-    write(1111,*) shape(A)
-    write(1111,*) "debut"
+
     ! Only the first body can be above the free surface, otherwise a bug will appear.
     do j = Int_Body,Mesh%NBody
         if(not(Mesh%Body(j)%Active) .and. j.ne.Mesh%NBody)then
@@ -570,7 +574,7 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
             pause
         end if
     end do
-    write(1111,*) "ilieu"
+
     ! Boundaries for the nodes and the panels.
     if(cuve_ferme)then
         if(Mesh%Body(Mesh%NBody)%Active)then
@@ -581,16 +585,14 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
     else
         N = reshape([1,Mesh%FS%IndFS(1),Mesh%Body(Int_Body)%IndBody(1),Mesh%Nsys,Mesh%FS%IndFS(3),Mesh%Body(Mesh%NBody)%IndBody(3)],(/3,2/)) 
     end if
-    write(1111,*) "calcul de A"
+ 
     ! Building A
     A(N(1,1):N(1,2),N(2,1):N(2,2)) = CS(N(1,1):N(1,2),N(2,1):N(2,2)) ! CS(:,FS)
     A(N(1,1):N(1,2),N(3,1):N(3,2)) = -CD(N(1,1):N(1,2),N(3,1):N(3,2)) ! -CD(:,Ext) -CD(:,B0) ... -CD(:,Bn)
   
-    write(1111,*) A(1,1)
-    write(1111,*) cond(1)
-    write(1111,*) "debut de cond"
+
     do j = 1,N(1,2)
-        write(1111,*) j
+    
 	    if (abs(A(j,j)).GT.Epsilon) then
 	        cond(j) = 1._RP/A(j,j)
 	    else
@@ -599,14 +601,14 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
         end if
     end do
     
-    write(1111,*) "cnd ?" 
+
     do j = 1,N(1,2)
         do k = 1,N(1,2)
             A(k,j) = A(k,j)*cond(k)
         end do
     end do
     
-    write(1111,*) "fin"
+
         
 end subroutine Calcul_A
 
@@ -668,7 +670,7 @@ subroutine Calcul_B(CD, CS, Ecoulement, Mesh, B, cond, Nnodes,Nsys, opt)
         ! BVP on Phi.
         Phi(N(2,1):N(2,2)) = Ecoulement%Phi(N(2,1):N(2,2))%perturbation
         DPhiDn(N(3,1):N(3,2)) = Ecoulement%DPhiDn(N(3,1):N(3,2))%perturbation
-    end if
+    end if   
 
 
     B = 0._RP

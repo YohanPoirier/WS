@@ -2157,7 +2157,7 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
     type(TEcoulement)                   :: EcoulementTmp    ! Temporary flow parameters.
     
     ! This subroutine initializes Phi_p and Eta_p on the free surface of the new mesh from the old one.
-    
+
     ! Allocation
     allocate(ClosestPoints(NewMesh%FS%IndFS(3)-NewMesh%FS%IndFS(1)+1))
     ClosestPoints = 0
@@ -2167,12 +2167,12 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
     
     ! Initialisation de l'écoulement à 0
     call IniEcoulement(EcoulementTmp, NewMesh%Nnoeud, 0._RP)
-    
+   
     ! Interpolation if FS remeshing.
     if(LocalRemeshFS)then
     
         do j = NewMesh%FS%IndFS(1),NewMesh%FS%IndFS(3) ! New mesh
-                
+        
             ! Searching the closest points of NewMesh%Tnoeud(j)%Pnoeud.
             dist = 999._RP
             do k = OldMesh%FS%IndFS(1), OldMesh%FS%IndFS(3) ! Old mesh
@@ -2183,6 +2183,7 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
                 end if
             end do
         
+            
             if(is_BS)then
             
                 ! Spline ordre at the new mesh point (may we could choose the closest point of the old mesh). Actually it is the same, %Ordre is given for all points of the FS. 
@@ -2190,32 +2191,36 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
             
                 ! Number of neighbours of the closest point.
                 NVoisin = OldMesh%Tnoeud(ClosestPoints(j))%NVoisin(2)-1 ! -1 because the point itself is counted.
-            
+             
                 ! Allocations
                 allocate(Pvoisin(3,NVoisin+1), B(NVoisin+Na,2), A(NVoisin+Na,NVoisin+Na))
             
                 ! Pvoisin and B
                 do k = 1,NVoisin+1 
-                
+                 
                     ! Neighbours of the points in the NEW mesh.
                     Pvoisin(1:3,k) = OldMesh%Tnoeud(abs(OldMesh%Tnoeud(ClosestPoints(j))%TVoisin(k,1)))%Pnoeud ! k = 1 is OldMesh%Tnoeud(ClosestPoints(j)) itself.
-                
+                    
                     if(OldMesh%Tnoeud(abs(OldMesh%Tnoeud(ClosestPoints(j))%TVoisin(k,1)))%NPanneau.ne.0)then
                         print*,"Interpolation_FS: Point is not on the FS:"
                         print*,j
                         pause
                     end if
-                
+                    
+                   
+                    
                     if (OldMesh%Tnoeud(ClosestPoints(j))%TVoisin(k,1).lt.0) Pvoisin(2,k) = - Pvoisin(2,k)
+                
                     B(k,1) = Ecoulement%Phi(abs(OldMesh%Tnoeud(ClosestPoints(j))%TVoisin(k,1)))%perturbation
                     B(k,2) = Ecoulement%Eta(abs(OldMesh%Tnoeud(ClosestPoints(j))%TVoisin(k,1)))%perturbation
+                  
                 
                 end do
                 B(Nvoisin+2:Nvoisin+Na,1:2) = 0._RP
             
                 ! A
                 call SplineMatrix(Nvoisin, NewMesh%Tnoeud(j)%Ordre, Pvoisin, A) ! If Na is given by the closest point of the old mesh: NewMesh%Tnoeud(j)%Ordre --> OldMesh%Tnoeud(ClosestPoints(j))%Ordre.
-            
+                
                 ! Inversion of the linear system
                 lda = Nvoisin+Na
                 allocate(ipiv(lda))
@@ -2230,18 +2235,18 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
                 end if
                 call dgetrs(trans,lda,nrhs,A,lda,ipiv,B,lda,info) ! The B-spline coefficients are in B.
                 deallocate(ipiv)
-            
+                
                 ! Phi_p
                 call SplineF(Nvoisin, NewMesh%Tnoeud(j)%Ordre, B(1:Nvoisin+Na,1), NewMesh%Tnoeud(j)%Pnoeud, Pvoisin, EcoulementTmp%Phi(j)%perturbation) ! NewMesh%Tnoeud(j)%Pnoeud is where SplineF is computed. If Na is given by the closest point of the old mesh: NewMesh%Tnoeud(j)%Ordre --> OldMesh%Tnoeud(ClosestPoints(j))%Ordre.
             
                 ! Eta_p
                 call SplineF(Nvoisin, NewMesh%Tnoeud(j)%Ordre, B(1:Nvoisin+Na,2), NewMesh%Tnoeud(j)%Pnoeud, Pvoisin, EcoulementTmp%Eta(j)%perturbation) ! NewMesh%Tnoeud(j)%Pnoeud is where SplineF is computed. If Na is given by the closest point of the old mesh: NewMesh%Tnoeud(j)%Ordre --> OldMesh%Tnoeud(ClosestPoints(j))%Ordre.
-                        
+           
                 ! Deallocations
                 if(allocated(Pvoisin)) deallocate(Pvoisin)
                 if(allocated(B)) deallocate(B)
                 if(allocated(A)) deallocate(A)
-            
+                
             else
                 print*,"Interpolation_FS: interpolation algorithm only works with B-splines."
                 call exit()
@@ -2262,7 +2267,7 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
         end do
             
     end if
-    
+
     ! Copy Ecoulement
     call DelEcoulement(Ecoulement)
     call NewEcoulement(Ecoulement, NewMesh%Nnoeud)
