@@ -414,7 +414,7 @@ subroutine MeshBody(Mesh, InputData, Origine)
         Mesh%Tfacette(Mesh%Body(Mesh%NBody)%IndBody(2):Mesh%Body(Mesh%NBody)%IndBody(4))%typeFrontiere = 1
         Mesh%Tnoeud(Mesh%Body(Mesh%NBody)%IndBody(1):Mesh%Body(Mesh%NBody)%IndBody(3))%Npanneau = 2
         Mesh%Tfacette(Mesh%Body(Mesh%NBody)%IndBody(2):Mesh%Body(Mesh%NBody)%IndBody(4))%Npanneau = 2
-        
+
         ! Updating the final position of the mesh.
         if (norm2(InputData%Position(1:3,2,nc)).gt.Epsilon) then
             P1 = reshape([1._RP,0._RP,0._RP,0._RP,cos(InputData%Position(1,2,nc)),-sin(InputData%Position(1,2,nc)),0._RP,sin(InputData%Position(1,2,nc)),cos(InputData%Position(1,2,nc))],(/3,3/))
@@ -664,6 +664,7 @@ subroutine mesh_doubleSpe( Facette, Mesh , n, cote2, typeFrontiere, Orig, Npanne
     end do 
     Mesh%Tnoeud(NnTemp+1:Nnoeud)%Npanneau = Npanneau
     Mesh%Tfacette(NfTemp+2:Nfacette+1)%Npanneau = Npanneau
+        
     Mesh%Nnoeud = Nnoeud
     Mesh%Nfacette = NFacette+1
 
@@ -773,6 +774,7 @@ subroutine mesh_cyl( Mesh, fgeom_vect,InputData, Origine)
     Mesh%Tnoeud(Mesh%FS%IndFS(1):Mesh%FS%IndFS(3))%Npanneau = 0
     Mesh%Tfacette(Mesh%FS%IndFS(2):Mesh%FS%IndFS(4))%Npanneau = 0
     
+    
     ! Body of the cylinder
     if (cuve_ferme) then
         dz = RtabSL(Nrtemp)-RtabSL(Nrtemp-1)
@@ -852,6 +854,7 @@ subroutine mesh_cyl( Mesh, fgeom_vect,InputData, Origine)
         Mesh%Tnoeud(Mesh%Body(Mesh%NBody)%IndBody(1):Mesh%Body(Mesh%NBody)%IndBody(3))%Npanneau = 3
         Mesh%Tfacette(Mesh%Body(Mesh%NBody)%IndBody(2):Mesh%Body(Mesh%NBody)%IndBody(4))%Npanneau = 3
     end if
+  
     
     ! Mesh of the body
     call MeshBody(Mesh,InputData, Origine)
@@ -869,6 +872,7 @@ subroutine mesh_cyl( Mesh, fgeom_vect,InputData, Origine)
             Mesh%Nfsys = Mesh%FS%IndFS(4)
         end if
     end if
+
     
     ! Geometrical properties of the mesh
     call GeomInit(Mesh, fgeom_vect, 0._RP,InputData, .false.)
@@ -1901,6 +1905,7 @@ subroutine SphereHull(Mesh, Rwh, Twh, profile,InputData,size_Rwh_Twh)
         Rwh = RSphere
         Twh = phiTab
     end if
+
     
 end subroutine SphereHull
 
@@ -2176,6 +2181,7 @@ subroutine MeshFS_WigleyHull(Mesh,InputData,fgeom_vect,Origine)
     Mesh%Tfacette(Mesh%FS%IndFS(2):Mesh%FS%IndFS(4))%typeFrontiere = 0
     Mesh%Tnoeud(Mesh%FS%IndFS(1):Mesh%FS%IndFS(3))%Npanneau = 0
     Mesh%Tfacette(Mesh%FS%IndFS(2):Mesh%FS%IndFS(4))%Npanneau = 0
+    
 
     !!! Mesh of the vertical wall
     Mesh.NBody = Mesh.NBody + 1
@@ -2941,6 +2947,7 @@ subroutine Mesh_cart_Wigley(Mesh, InputData,fgeom_vect,Origine)
     Mesh%Tfacette(Mesh%Body(1)%IndBody(2):Mesh%Body(1)%IndBody(4))%typeFrontiere = 1
     Mesh%Tnoeud(Mesh%Body(1)%IndBody(1):Mesh%Body(1)%IndBody(3))%Npanneau = 1
     Mesh%Tfacette(Mesh%Body(1)%IndBody(2):Mesh%Body(1)%IndBody(4))%Npanneau = 1
+
 
     ! Wigley Hull mesh
     L = InputData%Lgeom(1,1)

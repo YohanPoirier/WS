@@ -1587,7 +1587,7 @@ subroutine Write_State2(Mesh,Ecoulement,t,jt,Starting_time,jFiltering, filename)
     !           Panels
     ! -------------------------------------
     
-    ! Nnoeud
+    ! Nfacettes
     write(ioState,'(I)') Mesh%Nfacette
 
             
@@ -1596,6 +1596,18 @@ subroutine Write_State2(Mesh,Ecoulement,t,jt,Starting_time,jFiltering, filename)
         write(ioState,'(3I)') Mesh%Tfacette(j)%Tnoeud
     end do
             
+    
+        
+    
+    ! ------------------------------------
+    !           TypeNoeud
+    ! -------------------------------------
+                
+    ! Velocities of vertexes
+    do j = 1, Mesh%Nnoeud
+        write(ioState,'(I)') Mesh%Tnoeud(j)%TypeNoeud
+    end do   
+    
 
     ! Closing.
     close(ioState)
@@ -1721,7 +1733,8 @@ subroutine read_State(fileState,Mesh,Ecoulement,Starting_time,jFiltering)
         ! New TMaillage.
         call NewMaillage(Mesh,Nnoeud,NBodies+1) ! +1 for the tank.
         Mesh%Nnoeud = Nnoeud
-
+        
+        
         ! NBody
         Mesh%NBody = NBodies+1 ! 1 for the tank.
         
@@ -1814,6 +1827,19 @@ subroutine read_State(fileState,Mesh,Ecoulement,Starting_time,jFiltering)
         do j = 1, Mesh%Nfacette
             call read_param_only(ioState,Mesh%Tfacette(j)%Tnoeud,3)
         end do
+
+        
+        
+        
+        ! ------------------------------------
+        !           TypeNoeud
+        ! -------------------------------------
+            
+        ! Velocities of nodes
+        do j = 1, Mesh%Nnoeud
+            call read_param_only(ioState,Mesh%Tnoeud(j)%TypeNoeud)
+        end do   
+    
 
         
         ! Closing.

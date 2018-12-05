@@ -68,10 +68,16 @@ subroutine FreeBodyMotion(Mesh, Ecoulement, CD, CS,t,Nnodes,InputData,time)
     !$ time(15) = omp_get_wtime()
     
     ! Resolution of the linear system
-    if (Solv.eq.0) then
-        call GMRES(A, B, Sol, N,ierror)
-    else  
-        call LU(A, B, Sol, N, ierror)
+    
+    
+    if (bool_coarse) then  
+        sol = matmul(Mesh%Ainv2,B)
+    else
+        if (Solv.eq.0) then
+            call GMRES(A, B, Sol, N,ierror)
+        else  
+            call LU(A, B, Sol, N, ierror)
+        end if
     end if
     
     if(ierror/=0) goto 9999
@@ -121,6 +127,8 @@ subroutine SystLin_FreeBody(CD, CS, Ecoulement, Mesh, A, B, Sol, t,size_NBody, N
     real(rp), allocatable                           :: InertiaTerms(:,:)    ! Inertia terms in the dynamical momentum expression.
     real(rp),dimension(3,3,2)                       :: Tob                  ! eR0.
     
+
+    
     ! This subroutine creates the linear system of the coupling between the hydrodynamics and the dynamics.
         
     ! Time ramp
@@ -163,9 +171,11 @@ subroutine SystLin_FreeBody(CD, CS, Ecoulement, Mesh, A, B, Sol, t,size_NBody, N
     
     ! Building of A
     call Building_A(Mesh,A,CS,CD,M,Nsl,NBody,size_NBody,N,Nsys,Nb,Nnodes,InputData,NBodies)
+        
     
     ! Building of B
     call Building_B(Mesh,Ecoulement,B,CD,Nsys,Nb,Nsl,Nnodes,N,InputData,NBody,size_NBody)
+        
     
     ! Initialization of the solution with the one at the last time step
     call Initialization_solution(Mesh,Ecoulement,Nsys,Nb,Nbody,size_NBody,Sol,N,InputData)
@@ -431,6 +441,7 @@ subroutine PostSL_FreeBody(X, size_X,Mesh, Ecoulement,size_NBody,InputData)
     end do
     
     ! Phi(FS)_tn
+           
     Ecoulement%DDPhiDnDt(Mesh%FS%IndFS(1):Mesh%FS%IndFS(3))%Perturbation = X(Mesh%FS%IndFS(1):Mesh%FS%IndFS(3))
     
     Nt = 0
@@ -438,12 +449,12 @@ subroutine PostSL_FreeBody(X, size_X,Mesh, Ecoulement,size_NBody,InputData)
     Ndof = 0
     
     do nc = 1,Mesh%NBody
-        
+
         ! Phi(B0)_t and Phi(Ext)_t
         if(Mesh%Body(nc)%Active)then
             Ecoulement%DPhiDt(Mesh%Body(nc)%IndBody(1):Mesh%Body(nc)%IndBody(3))%Perturbation = X(Mesh%Body(nc)%IndBody(1):Mesh%Body(nc)%IndBody(3))
         end if
-        
+
         if (Mesh%Body(nc)%CMD(1)) then
             Ecoulement%DDPhiDnDt(Mesh%Body(nc)%IndBody(1):Mesh%Body(nc)%IndBody(3))%Perturbation = X(Nsys+Nt+1:Nsys+Nt+NBody(nc,3))
             k=0
@@ -451,8 +462,7 @@ subroutine PostSL_FreeBody(X, size_X,Mesh, Ecoulement,size_NBody,InputData)
                 if(InputData%dll_dir(j,jj))then
                     k = k+1
                     ! Acceleration of the floater
-                    Mesh%Body(nc)%ABody(j) = X(Nsys+Nb+Ndof+k)
-                    
+                    Mesh%Body(nc)%ABody(j) = X(Nsys+Nb+Ndof+k)                   
                 else
                     Mesh%Body(nc)%ABody(j) = 0._rp
                 end if
@@ -1654,6 +1664,8 @@ subroutine Building_A(Mesh,A,CS,CD,M,Nsl,NBody,size_NBody,N,Nsys,Nb,Nnodes,Input
         end if
     end do
     
+    
+
 end subroutine Building_A
 
 subroutine Building_B(Mesh,Ecoulement,B,CD,Nsys,Nb,Nsl,Nnodes,N,InputData,NBody,size_NBody)
@@ -1679,19 +1691,21 @@ subroutine Building_B(Mesh,Ecoulement,B,CD,Nsys,Nb,Nsl,Nnodes,N,InputData,NBody,
     ! Initialization
     B = 0._RP
     
+
     ! Integral equation    
-    do k = Nsl(1),Nsl(2)
+    do k = Nsl(1),Nsl(2)  
         do j = 1,Nsys
             B(j) = B(j) + CD(j,k)*Ecoulement%DPhiDt(k)%perturbation
-        end do
+        end do    
     end do
     
+        
     ! Slip condition
     Nt = 0
     do nc = 1,Mesh%NBody
         if(Mesh%Body(nc)%CMD(1))then
             B(Nsys+Nt+1:Nsys+Nt+NBody(nc,3)) = Mesh%Body(nc)%Q(1:Mesh%Body(nc)%IndBody(3) - Mesh%Body(nc)%IndBody(1) + 1)
-            
+                        
             Nt = Nt + NBody(nc,3)
         end if
     end do
@@ -1702,7 +1716,7 @@ subroutine Building_B(Mesh,Ecoulement,B,CD,Nsys,Nb,Nsl,Nnodes,N,InputData,NBody,
     do nc = 1,Mesh%NBody
         if(Mesh%Body(nc)%CMD(1))then            
             B(Nsys+Nb+Ndof+1:Nsys+Nb+Ndof+InputData%ndll(jj)) = Mesh%Body(nc)%Th(1:InputData%ndll(jj))
-                                    
+                                                
             Ndof = Ndof + InputData%ndll(jj)
             jj = jj + 1
         else
@@ -1714,6 +1728,8 @@ subroutine Building_B(Mesh,Ecoulement,B,CD,Nsys,Nb,Nsl,Nnodes,N,InputData,NBody,
     end do
     
 end subroutine Building_B
+
+
 
 subroutine Initialization_solution(Mesh,Ecoulement,Nsys,Nb,Nbody,size_NBody,Sol,N,InputData)
     

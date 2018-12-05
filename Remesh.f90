@@ -265,7 +265,7 @@ subroutine MeshVelBody(Mesh,t,dtl,InputData)
     ! This subroutine computes the velocity of the nodes of the bodies based on a segment spring analogy.
     
     ierror = 0
-    
+      
     if (is_immerged) then ! All bodies are immerged, no intersection curve floater/free surface. Can appear even if the mesh strategy of CC is used.
         
         jj = 1
@@ -279,7 +279,8 @@ subroutine MeshVelBody(Mesh,t,dtl,InputData)
                         ! Motion equation solved at G (CSolv = (GBody,angles)).
                         call Computation_vect_product(Mesh%Body(nc)%VBody(4:6),Mesh%Tnoeud(j)%Pnoeud(1:3)-Mesh%Body(nc)%CSolv(1:3),vect_product_1)
                     end if
-                    Mesh%Tnoeud(j)%Velocity = Mesh%Body(nc)%VBody(1:3) + vect_product_1
+                    Mesh%Tnoeud(j)%Velocity = Mesh%Body(nc)%VBody(1:3) + vect_product_1 
+                        
                 end do
             else ! No deformation (tank).
                 if(Mesh%Body(nc)%Active)then
@@ -315,9 +316,15 @@ subroutine MeshVelBody(Mesh,t,dtl,InputData)
             jj = jj + 1
         end do
         
+
+        
+        
+        
         ! ----------------------------------------------------------------------------------------
         ! Vitesse des noeuds du maillage
         ! ----------------------------------------------------------------------------------------
+                
+        
         jj = 1
         do nc = 1,Mesh%NBody
             if (Mesh%Body(nc)%CMD(1)) then ! No tank
@@ -349,6 +356,9 @@ subroutine MeshVelBody(Mesh,t,dtl,InputData)
                         j2 = Mesh%Tnoeud(j)%double(jn)
                         bool = bool .or. Mesh%Tnoeud(j2)%typeNoeud == 0 ! Mesh%Tnoeud(j2)%typeNoeud == 0 -> Free surface
                     end do
+                    
+
+                    
                     
                     if(bool)then ! Noeuds Doubles avec surface libre.
                         B(1) = dot_product(V + OmegaMG, Mesh%Tnoeud(j)%Normale)
@@ -400,6 +410,7 @@ subroutine MeshVelBody(Mesh,t,dtl,InputData)
                         
                         Mesh%Tnoeud(j)%Velocity = Sol(1:3)
                         
+
                         do jn = 1,Mesh%Tnoeud(j)%Ndouble
                             j2 = Mesh%Tnoeud(j)%double(jn)
                             Mesh%Tnoeud(j2)%Velocity = Mesh%Tnoeud(j)%Velocity ! Twin nodes Floater - Free surface
@@ -491,6 +502,7 @@ subroutine MeshVelBody(Mesh,t,dtl,InputData)
                 end if
             end if
         end do
+
         
         10  continue
         
@@ -1158,6 +1170,8 @@ subroutine MeshVelFS(Maillage,t,dtl)
         
     ! This subroutine computes the velocity of the nodes of the free surface.
     
+
+    
     NFS1 = Maillage%FS%IndFS(1)
     NFS2 = Maillage%FS%IndFS(3)
     
@@ -1170,6 +1184,7 @@ subroutine MeshVelFS(Maillage,t,dtl)
             ni = ni+1
         end if
     end do
+    
     
     ! Dimension of the linear system.
     if(Htype.eq.0)then
@@ -1250,7 +1265,7 @@ subroutine MeshVelFS(Maillage,t,dtl)
             call CGPhi0(M,t,GPhi0)
             B(3) = dot_product(GPhi0,A(3,1:3))
             call LU(A,B,Sol,3)
-            Maillage%Tnoeud(k)%Velocity(1:3) = Sol            
+            Maillage%Tnoeud(k)%Velocity(1:3) = Sol    
         end do
         
         ! Mise a jour de la vitesse des noeuds de controle.
@@ -1276,11 +1291,12 @@ subroutine MeshVelFS(Maillage,t,dtl)
                 call CGPhi0(M,t,GPhi0)
                 B(3) = dot_product(GPhi0,A(3,1:3))
                 call LU(A,B,Sol,3)
+                                        
                 Maillage%Tnoeud(k)%Velocity(1:3) = [0._rp,0._rp,Sol(3)]
             end if
         end do
     end if
-    
+        
     ! Deallocation des tableaux.
     if(allocated(xd)) deallocate(xd)
     if(allocated(xi)) deallocate(xi)
@@ -1445,6 +1461,7 @@ subroutine CheckMesh3D(Maillage,ti,boolBodies,boolFS,InputData)
     
     ! This subroutine checks the quality of the mesh.
     
+
     boolBodies = .false.
     boolFS = .false.
     NF1 = 1
@@ -1453,18 +1470,20 @@ subroutine CheckMesh3D(Maillage,ti,boolBodies,boolFS,InputData)
     ! Allocating.
     allocate(fsize(NFT))
     allocate(fshape(NFT))
-    
+
     ! Initialization.
     fsize(:) = -1._RP
-    fshape(:) = -1._RP
+    fshape(:) = -1._RP   
     
     do j = NF1,NFT
-        
+
         id = Maillage%Tfacette(j)%Tnoeud(1:3)
+                
         PNoeud(1:3,1) = Maillage%Tnoeud(id(1))%PNoeud ! 1st vertex of the panel
         PNoeud(1:3,2) = Maillage%Tnoeud(id(2))%Pnoeud ! 2nd vertex of the panel
         PNoeud(1:3,3) = Maillage%Tnoeud(id(3))%Pnoeud ! 3rd vertex of the panel
         area = Maillage%Tfacette(j)%Aire
+
         
         ! Edge.
         L1 = PNoeud(1:3,3) - PNoeud(1:3,2) ! 1st edge of the panel
@@ -1478,21 +1497,23 @@ subroutine CheckMesh3D(Maillage,ti,boolBodies,boolFS,InputData)
 	    fshape(j) = d3*d3+d2*d2+dot_product(L2,L3)
         fshape(j) = (2._rp*sqrt(3._rp)*area)/fshape(j)
         
+        
         if(Maillage%Tfacette(j)%NPanneau .ge. Int_Body)then ! Bodies
             
-            ! Reference length for each panel.
+            ! Reference length for each panel.            
             dx = InputData%dx2(Maillage%Tfacette(j)%NPanneau-1) ! -1 because NPanneau starts at 2 for the bodies and %dx2 starts at 1.
             
             ! Metric fsize.
             fsize(j) = area/(c_area*dx*dx) ! Area of the panel / Area of a reference panel
             
         end if
+
                 
     end do
     
     ! Free surface.
     do j = Maillage%FS%IndFS(2),Maillage%FS%IndFS(4)
-        
+
         ! fshape.
         if (fshape(j).lt.0.25_rp) then
             id = Maillage%Tfacette(j)%Tnoeud(1:3)
@@ -1520,7 +1541,6 @@ subroutine CheckMesh3D(Maillage,ti,boolBodies,boolFS,InputData)
             NFB1 = Maillage%Body(nc)%IndBody(2)
             NFBT = Maillage%Body(nc)%IndBody(4)
             do j = NFB1,NFBT
-            
                 ! fshape.
                 if (fshape(j).lt.0.25_rp) then
                     id = Maillage%Tfacette(j)%Tnoeud(1:3)
@@ -1559,7 +1579,7 @@ subroutine CheckMesh3D(Maillage,ti,boolBodies,boolFS,InputData)
     if(iwsize)then
         write(iosize,'(4f8.2)') ti,minval(fshape(NFB1:NFBT)),minval(fsize(NFB1:NFBT)),maxval(fsize(NFB1:NFBT))
     endif
-    
+
     if(allocated(fsize)) deallocate(fsize)
     if(allocated(fshape)) deallocate(fshape)
     
@@ -1638,12 +1658,10 @@ subroutine Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_ve
     
     filemaill = 'mesh_'//filename
     
-    
-
-    
     if(Mesh_type.eq.2)then ! Mesh strategy of CC.        
-        
+    
         ! Updating IndBody_former
+        
         jj = 1
         do nc = Int_Body,Mesh%NBody
             IndBody_former(1,jj) = Mesh%Body(nc)%IndBody(1)
@@ -1665,7 +1683,6 @@ subroutine Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_ve
         
         ! When there is a crossing of the free surface, to know which body is concerned.
         do nc = 1,NBodies
-            
             ! Is a body above the free surface?
             if(RemeshFS)then
                 call isGeom_aboveFS(fgeom_vect%geom(nc),ti,AboveFS)
@@ -1674,14 +1691,14 @@ subroutine Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_ve
             end if
             
             Active_old(nc) = fgeom_vect%Active(nc)
-            
+
             if(not(AboveFS))then
                 fgeom_vect%Active(nc) = .true.  ! Body immerged or piercing.
             else
                 fgeom_vect%Active(nc) = .false. ! Body above the free surface.
             end if
         end do
-        
+
         ! Flag to known if the free surface mesh needs to be remeshed or not.
         DeformFS =  not(lineaireFS) .or. not(lineaireBody) .and.  not(is_immerged)
 
@@ -1699,7 +1716,7 @@ subroutine Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_ve
                 
         ! Remeshing if necessary.
         if(boolRemesh)then
-            
+
             print*,""
             print*,"Remeshing wanted:"
             print*,"Bodies mesh quality: ",MeshQualityBodies

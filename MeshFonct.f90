@@ -2373,7 +2373,7 @@ subroutine change_type_mesh(mesh,nb_point,nb_tri,t,Maillage,nface,fgeom_vect,ier
                 endif
                 j = j +1
             enddo
-            maillage%Body(nc)%IndBody(3) = id_nc                             
+            maillage%Body(nc)%IndBody(3) = id_nc    
             j = id_nc+1
         end if
     enddo
@@ -2408,6 +2408,7 @@ subroutine change_type_mesh(mesh,nb_point,nb_tri,t,Maillage,nface,fgeom_vect,ier
             maillage%Tfacette(j)%typeFrontiere = 1
         endif
     enddo
+
     maillage%Nfacette = nb_tri
     
     ! Tri
@@ -2784,6 +2785,7 @@ subroutine insert_mesh_global(mesh,nb_point,nb_tri,Maillage,nface,fgeom_vect,ier
             maillage%Tfacette(jk)%typeFrontiere = 1
         end if
     enddo
+    
     if(LocalRemeshFS)then
         maillage%Nfacette = nb_tri
     else

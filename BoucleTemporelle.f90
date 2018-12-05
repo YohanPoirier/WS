@@ -1099,6 +1099,9 @@ subroutine RK_manager(Mesh,Ecoulement,RK,RKVBody,RKABody,RKVel,jk,Nnodes,Nnodes_
     Int_sl1 = Mesh%FS%IndFS(3)
     
     ! Internal state vector: DpPhi_pdt and DEta_pdt (particular derivative) on the free surface.
+    
+    !We should use indices : 1 to N_FS (number of node in the free surface) for RK
+    
     RK(Int_sl0:Int_sl1,jk,1) = Ecoulement%DpPhiDt(Int_sl0:Int_sl1)%perturbation
     RK(Int_sl0:Int_sl1,jk,2) = Ecoulement%DEtaDt(Int_sl0:Int_sl1)%perturbation
     
@@ -1156,17 +1159,18 @@ subroutine Time_stepping(Mesh,Mesh0,Ecoulement,Ecoulement0,fgeom_vect,RK,RKVBody
     
     ! Time-stepping of DpPhi_pDt and DEta_pDt (particular derivative) on the free surface.
     Ecoulement%Phi(Int_sl0:Int_sl1)%perturbation = Ecoulement0%Phi(Int_sl0:Int_sl1)%perturbation + denom*dt*(RK(Int_sl0:Int_sl1,1,1)+2._RP*RK(Int_sl0:Int_sl1,2,1)+2._RP*RK(Int_sl0:Int_sl1,3,1)+RK(Int_sl0:Int_sl1,4,1))
+       
     
     ! Time-stepping of Eta_p and DpEtaDt
     Ecoulement%Eta(Int_sl0:Int_sl1)%perturbation = Ecoulement0%Eta(Int_sl0:Int_sl1)%perturbation + denom*dt*(RK(Int_sl0:Int_sl1,1,2)+2._RP*RK(Int_sl0:Int_sl1,2,2)+2._RP*RK(Int_sl0:Int_sl1,3,2)+RK(Int_sl0:Int_sl1,4,2))
-        
+    
     ! Time-stepping of the position of the nodes
     if (DeformMesh) then
         do j=1,Mesh%Nnoeud
             Mesh%Tnoeud(j)%Pnoeud(1:3) = Mesh0%Tnoeud(j)%Pnoeud(1:3) + denom*dt*(RKVel(1:3,j,1) + 2._rp*RKVel(1:3,j,2) + 2._rp*RKVel(1:3,j,3) + RKVel(1:3,j,4))
         end do
     end if
-        
+
     ! Time-step of the position, velocity and acceleration of the floater
     jj = 1
     do nc = int_Body,Mesh%NBody
@@ -1183,7 +1187,7 @@ subroutine Time_stepping(Mesh,Mesh0,Ecoulement,Ecoulement0,fgeom_vect,RK,RKVBody
             Mesh%Body(nc)%ABody = denom*(RKABody(:,1,jj) + 2._rp*RKABody(:,2,jj) + 2._rp*RKAbody(:,3,jj) + RKABody(:,4,jj))
         end if
         jj = jj + 1
-    end do
+    end do   
     
     ! Time-stepping of the velocity of the nodes
     if (DeformMesh) then

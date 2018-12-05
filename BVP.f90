@@ -1,6 +1,7 @@
 module BVP
 use FonctionsCommunes
 use CoeffInfluence
+use bodymotion_mod
 
 implicit none
 
@@ -9,7 +10,7 @@ contains
 
 
 ! Dans cette subroutine on calcule les matrices A des deux systemes et onles inverse
-subroutine initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, CD, CS)
+subroutine initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, inputData)
 
     !f2py integer*1, dimension(1000)        :: Ecoulement
     type(TEcoulement)                       :: Ecoulement               ! Flow parameters.
@@ -19,17 +20,37 @@ subroutine initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, CD, CS)
     type(TMaillage)                         :: Mesh_ref                 ! Mesh which is used by coarse propagator
 
     integer                                 :: Nnodes
-    real(rp), dimension(Nnodes,Nnodes)      :: CD, CS                   ! Influence coefficient matrices.
+    
+    !f2py integer*1, dimension(1000)        :: InputData
+    type(InputDataStruct)                   :: InputData                ! Input data.
   
     logical                                 :: Option                   ! present(Option) = false for the BVP on Phi, present(Option) = true and Option = true for the BVP on DPhiDt.
   
     real(rp),allocatable, dimension(:,:)    :: A                        ! A matrix of the linear system.
 
-    real(rp) :: det
-    integer :: N,i,j
+    integer                                 :: N, N2                    ! size of BVP1 et BVP2
     
     
+    
+    ! 2nd BVP
+    integer                                         :: size_NBody           ! Size of NBody.
+    integer                                         :: Nsys,Nb              ! Number of unknowns in the mesh, nodes in the mesh of the floaters and the number of degree of freedom.
+    integer, dimension(3)                           :: Nsl                  ! Index of the nodes for the free surface.
+    integer, dimension(:,:), allocatable            :: NBody                ! Index of the nodes for the floater.
+    real(rp)                                        :: TimeRamp             ! Ramp parameter.
+    real(rp), allocatable                           :: Fext(:,:)            ! External forces.
+    real(rp), allocatable                           :: S(:,:,:),DSDt(:,:,:) ! Transformation matrices between the Cardan frames and the inertial frame and its time-differentiation.
+    real(rp), allocatable                           :: M(:,:,:)             ! Mass matrices.
+    real(rp), allocatable                           :: InertiaTerms(:,:)    ! Inertia terms in the dynamical momentum expression.
+    real(rp),dimension(3,3,2)                       :: Tob                  ! eR0.
+    integer                                         :: Ndof                 ! Number of dof
+    integer                                         :: nc, jj ,j,k                  ! Loop parameters
 
+    
+    
+    
+    ! 1st BVP----------------------------------------
+    
 
     ! Allocation.
     N = Mesh%Nsys
@@ -38,32 +59,116 @@ subroutine initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, CD, CS)
     allocate(Mesh%CD(N,N), Mesh%CS(N,N))
     
     ! Calculation of the coeffiient of influence
-    CD = 0._RP ; CS = 0._RP
     call CoeffInfl(Mesh, Mesh%CD, Mesh%CS, N)
 
     ! Building of A, B and initialization of Sol.
     option = .false. !BVP sur phi
-    call Calcul_A(Mesh%CD, Mesh%CS, Ecoulement, Mesh, A, Mesh%cond1, N, N)
+    call Calcul_A(Mesh%CD, Mesh%CS, Ecoulement, Mesh, A,  N, N)
+
+    call preconditioning_A(A, Mesh%cond1, N)
  
     ! Inversion of A
     call inv_matrice(A,Mesh%Ainv1, N)
     
+    deallocate(A)
     
-    !Copy mesh
+    
+    
+    ! 2nd BVP-----------------------------------------
+    
+    if (FreeBodies) then
+
+        ! Size of the system        
+        Ndof = 0
+        Nb = 0
+        jj = 1
+        do nc = Int_Body,Mesh%Nbody
+            if (Mesh%Body(nc)%CMD(1)) then
+                Nb = Nb + Mesh%Body(nc)%IndBody(3) - Mesh%Body(nc)%IndBody(1) + 1 ! Total number of nodes for all the bodies (not the tank).
+                Ndof = Ndof + InputData%Ndll(jj)
+                jj = jj + 1
+            else
+                ! If a floater is fixed, CMD = F but jj must be increased of 1.
+                if(nc.ge.Int_Body)then 
+                    jj = jj + 1
+                end if
+            end if
+        end do     
+        
+        N2 = Mesh%Nsys + Nb + Ndof ! Size of the linear system.
+
+        
+        Mesh%Nsys2 = N2
+        size_NBody = Mesh%NBody
+    
+        ! Number of nodes and index
+        allocate(NBody(size_NBody,3))
+        call Index_Number_Nodes(Mesh,Nsl,NBody,Nsys,Nb,size_NBody)
+    
+        ! Allocation of CK, CT, Q, Th, S, DSDt, Fext, M, InertiaTerms
+        call Init_CK_CT_Q_Th(Mesh,InputData)
+        allocate(S(3,3,NBodies))
+        allocate(DSDt(3,3,NBodies))
+        allocate(M(6,6,NBodies))
+        allocate(Inertiaterms(3,NBodies))
+        allocate(A(N2,N2))
+        allocate(Mesh%Ainv2(N2,N2), Mesh%cond2(N2)) 
+
+        ! Computation of S
+        call get_S(Mesh,S,NBodies)
+
+        ! Computation of DSDt
+        call get_DSDt(Mesh,DSDt,NBodies)
+
+        ! Computation of CK
+        call get_CK(Mesh)
+
+        ! Computation of CT and updating of CK
+        call get_CT(Mesh,S,NBodies)
+
+        ! Computation of the inertia terms used in the dynamic momentum
+        call get_Inertia_terms(Mesh,M,S,DSDt,InertiaTerms,InputData,NBodies,Tob)
+    
+        ! Building of A
+        call Building_A(Mesh,A,Mesh%CS,Mesh%CD,M,Nsl,NBody,size_NBody,N2,Nsys,Nb,Nnodes,InputData,NBodies)
+        
+        call Preconditioning_A(A, Mesh%cond2, N2)
+        
+        ! Inversion of A
+        call inv_matrice(A,Mesh%Ainv2, N2)
+           
+        deallocate(A)
+
+        ! a enleer
+        call deallocate_CK_CT_Q_Th(Mesh)
+    
+    end if
+    
+    
+    
+    !Copy mesh-------------------------------------------------------
+    
     call NewMaillage(Mesh_ref, Mesh%Nnoeud,Mesh%NBody)
     call CopyMaillage(Mesh_ref, Mesh)
+
     allocate(Mesh_ref%ainv1(N,N), Mesh_ref%cond1(N))
     allocate(Mesh_ref%CD(N,N), Mesh_ref%CS(N,N))  
     
     Mesh_ref%ainv1 = Mesh%ainv1
     Mesh_ref%cond1 = Mesh%cond1
+    
+    if (freeBodies) then
+        allocate(Mesh_ref%ainv2(N2,N2), Mesh_ref%cond2(N2))
+        Mesh_ref%ainv2 = Mesh%ainv2
+        Mesh_ref%cond2 = Mesh%cond2
+    end if
+    
     Mesh_ref%CD = Mesh%CD
     Mesh_ref%CS = Mesh%CS
     
 
     ! Deallocating.
-    deallocate(A)
-
+    
 end subroutine initialisation_lineaire
 
 
@@ -182,7 +287,7 @@ end subroutine solBVP_cuda
 !                                   Solveur du Problème aux Limites                                 !
 !                                                                                                   !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
+subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes, time, boolRemesh, t, Option)
     !!!!!Problème :
     !   Résoudre le système des équations intégrales par
     !       o Calcul ou récupération des coefficients d'influence
@@ -255,11 +360,10 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
             bool = .false.
         end if
     end if
-  
-        
-    ! Computation of the influence coefficients
-    if(CCI .and. DeformMesh .and. bool)then ! Partial computation of the influence coefficients, the mesh is moving and no remeshing.
 
+
+    ! Computation of the influence coefficients
+    if(CCI .and. DeformMesh .and. bool)then ! Partial computation of the influence coefficients, the mesh is moving and no remeshing.        
         
         if(CIPartiel.lt.0)then ! If the partial computation of the influence coefficients is activated.
             allocate(LTab(Mesh%Nnoeud))
@@ -278,6 +382,8 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
 
             ! Filling of BPoint and BFace.
             call ZoneInfl(Mesh, Ltab, borne, BPoint, BFace,Mesh%Nnoeud,Mesh%Nfacette) ! BPoint(j) or BFace(j) = true : computation in using CoeffInfl_Col.
+
+            
 
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             !           Free surface panels <-> Free surface panels
@@ -479,12 +585,11 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
     ! Building of A, B and initialization of Sol.
         
     if (bool_coarse) then
-        call calcul_B(Mesh%CD, Mesh%CS, Ecoulement, Mesh, B, Mesh%cond1, N, N, opt)
+        call calcul_B(Mesh%CD, Mesh%CS, Ecoulement, Mesh, B, N, N, opt)                
+        call conditioning_B(B, Mesh%cond1,N)
     else
         call SystLin(CD, CS, Ecoulement, Mesh, A, B, Sol,Nnodes,N, Option)
     end if
-    
-
     
     call CPU_TIME(tc)
     
@@ -511,8 +616,8 @@ subroutine solBVP(Ecoulement, Mesh, CD, CS, Nnodes,time,boolRemesh, t, Option)
             call LU(A, B, Sol, N)
         end if
     end if
-
-   
+    
+    
     call CPU_TIME(td)
     if(not(Opt))then
 #ifdef _OPENMP
@@ -545,7 +650,7 @@ end subroutine solBVP
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   
-subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
+subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, Nnodes,Nsys)
     !!!!! Problème :
     !   Initialiser le système linéaire à partir du type de frontière
     !       o Surface Libre: On cherche la vitesse normale --> A = CS et B = B + CD*Phi
@@ -562,7 +667,7 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
 
     integer                                         :: j, k                             ! Loop parameters.
     integer, dimension(3,2)                         :: N                                ! Boundaries for the nodes and the panels.
-    real(rp), dimension(Nnodes)                     :: cond                             ! Inverse of the diagonal coefficients.
+
     
     ! This subroutine builds A
 
@@ -590,8 +695,22 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
     A(N(1,1):N(1,2),N(2,1):N(2,2)) = CS(N(1,1):N(1,2),N(2,1):N(2,2)) ! CS(:,FS)
     A(N(1,1):N(1,2),N(3,1):N(3,2)) = -CD(N(1,1):N(1,2),N(3,1):N(3,2)) ! -CD(:,Ext) -CD(:,B0) ... -CD(:,Bn)
   
+        
+end subroutine Calcul_A
 
-    do j = 1,N(1,2)
+
+
+
+subroutine preconditioning_A(A, cond, N)
+    
+    integer                                  :: N                                ! Size of the system    
+    real(rp), dimension(N,N)                 :: A                                ! MAtrice A (Ax=B)
+    real(rp), dimension(N)                   :: cond                             ! Inverse of the diagonal coefficients.
+    integer                                  :: j,k                              ! Loop parameter        
+
+
+
+    do j = 1,N
     
 	    if (abs(A(j,j)).GT.Epsilon) then
 	        cond(j) = 1._RP/A(j,j)
@@ -602,19 +721,17 @@ subroutine Calcul_A(CD, CS, Ecoulement, Mesh, A, cond, Nnodes,Nsys)
     end do
     
 
-    do j = 1,N(1,2)
-        do k = 1,N(1,2)
+    do j = 1,N
+        do k = 1,N
             A(k,j) = A(k,j)*cond(k)
         end do
     end do
     
-
-        
-end subroutine Calcul_A
+end subroutine
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   
-subroutine Calcul_B(CD, CS, Ecoulement, Mesh, B, cond, Nnodes,Nsys, opt)
+subroutine Calcul_B(CD, CS, Ecoulement, Mesh, B, Nnodes,Nsys, opt)
     !!!!! Problème :
     !   Initialiser le système linéaire à partir du type de frontière
     !       o Surface Libre: On cherche la vitesse normale --> A = CS et B = B + CD*Phi
@@ -631,7 +748,6 @@ subroutine Calcul_B(CD, CS, Ecoulement, Mesh, B, cond, Nnodes,Nsys, opt)
 
     integer                                         :: j, k                             ! Loop parameters.
     integer, dimension(3,2)                         :: N                                ! Boundaries for the nodes and the panels.
-    real(rp), dimension(Nsys)                       :: cond                             ! Inverse of the diagonal coefficients.
     real(rp), allocatable                           :: Phi(:), DphiDn(:)                ! Phi, DPhiDn and inverse
    logical, intent(in)                              :: Opt                              ! Opt = false for the BVP on Phi and true for the BVP on DPhiDt (forced motion).
     
@@ -686,10 +802,21 @@ subroutine Calcul_B(CD, CS, Ecoulement, Mesh, B, cond, Nnodes,Nsys, opt)
         end do    
     end do
     deallocate(Phi,DPhiDn)
+            
+end subroutine Calcul_B
+
+
+subroutine conditioning_B(B, cond,Nsys)
+
+    integer,intent(in)                              :: Nsys                     ! Number of nodes and unknowns in the linear system.
+    real(rp), dimension(Nsys)           :: B                                ! Matrix A of the linear system.
+    real(rp), dimension(Nsys)                       :: cond                             ! Inverse of the diagonal coefficients.
     
     B = B*cond
-        
-end subroutine Calcul_B
+    
+
+
+end subroutine conditioning_B
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   

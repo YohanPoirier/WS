@@ -502,8 +502,14 @@ subroutine GeomInit(Mesh, fgeom_vect, t, InputData,bool, ierror)
     20     format('erreur position noeud j = ',i3,' coord = [',3f8.4,'] distance to COG : ',f16.8)
     
     ! NPanneau - Free surface
+    
+        
     do j=Mesh%FS%IndFS(1),Mesh%FS%IndFS(3)
         Mesh%Tnoeud(j)%NPanneau = 0
+    end do
+    
+    do j=Mesh%FS%IndFS(2),Mesh%FS%IndFS(4)
+        Mesh%Tfacette(j)%NPanneau = 0
     end do
         
     ! NPanneau - Bodies and CMD
@@ -518,18 +524,31 @@ subroutine GeomInit(Mesh, fgeom_vect, t, InputData,bool, ierror)
                     Mesh%Body(nc)%CMD = [.true.,.true.]
                 end if
                 Mesh%Body(nc)%is_tank = .false.
+                
                 do j=Mesh%Body(nc)%IndBody(1),Mesh%Body(nc)%IndBody(3)
                     Mesh%Tnoeud(j)%NPanneau = nc
                 end do
+                
+                do j=Mesh%Body(nc)%IndBody(2),Mesh%Body(nc)%IndBody(4)
+                    Mesh%Tfacette(j)%NPanneau = nc
+                end do
+                
+                
             end if
             jj = jj + 1
         else ! Tank
             Mesh%Body(nc)%CMD(1) = .false.
             Mesh%Body(nc)%CMD(2) = Htype.ne.0 .and. not(lineaireFS)
             Mesh%Body(nc)%is_tank = .true.
+            
             do j=Mesh%Body(nc)%IndBody(1),Mesh%Body(nc)%IndBody(3)
                 Mesh%Tnoeud(j)%NPanneau = 1
             end do
+            
+            do j=Mesh%Body(nc)%IndBody(2),Mesh%Body(nc)%IndBody(4)
+                Mesh%Tfacette(j)%NPanneau = 1
+            end do
+                
         end if
     end do
         

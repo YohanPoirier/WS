@@ -170,6 +170,7 @@ module API_WSC
     real(rp),dimension(20) :: time2 ! To be deleted
     
 
+
     contains
     
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -179,11 +180,15 @@ module API_WSC
     
     ! Yohan ----------------------------------------
     
-     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+            
+
+    
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !            Subroutines to create a developed temporal loop in Python
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
-
+        
     
     subroutine Pre_Temporal_loop_parareal()
             
@@ -241,13 +246,71 @@ module API_WSC
         
         ! Initialization of Mesh0, Ecoulement, Ecoulement0 and eventually EcoulementDF for the updating at the end of each RK4 step
         call Initialization_Mesh_Ecoulement(Mesh,Mesh0,Ecoulement,Ecoulement0,t(1),EcoulementDF,InputData)
+        
+        ! Updating Ecoulement in case of state input file.
+        
+        if(get_State)then
+            if(get_State)then
+				
+                ! Reading the state input file.
+                call read_State(fileState,Mesh_State,Ecoulement_State,Starting_time,jFiltering)
+                
+                ! Updating nliss in case of crossing the free surface.
+                if(jFiltering.ne.0)then
+                    nliss = 1
+		        end if
+                
+                ! Interpolation of Phi_p and Eta_p from the Mesh_State.
+                
+                call Interpolation_FS(Mesh_State,Mesh,Ecoulement_State,t(1),.true.,ierror) ! True because there is a FS remeshing, therefore an interpolation.
 
+                
+                ! Initilization of Ecoulement from Ecoulement_State.
+                call CopyEcoulement(Ecoulement, Ecoulement_State, Mesh%Nnoeud)
+                
+                ! Updating the velocity of the floaters.
+                do nc = Int_Body,Mesh%NBody
+                    Mesh%Body(nc)%VBody = Mesh_State%Body(nc)%VBody
+                end do
+                
+                ! Deleting.
+                call DelEcoulement(Ecoulement_State)
+                call DelMaillage(Mesh_State)
+                
+                ! Initialization of jt_init.
+                jt_init = jt0
+                
+            else
+        
+                ! Initialization of jt_init.
+                jt_init = 1
+                
+            end if
+                            
+        end if
+        
+        ! First calculation of the influence coefficient to know how long the simulation will lasts.
+        
+        call cpu_time(time_begin)
+        
+        if (not(bool_coarse)) then
+                CD = 0._RP ; CS = 0._RP
+                call CoeffInfl(Mesh, CD, CS,Nnodes)     
+        end if
         
     end subroutine Pre_Temporal_loop_parareal
     
+    
+    
+    
+    
+    
     subroutine api_import_mesh_ecoulement()
         
+        integer :: j
+        
         call DelEcoulement(Ecoulement)
+               
         call read_State(fileState, Mesh, Ecoulement, Starting_time, jFiltering)
         
         Mesh%Nsys = Mesh%FS%IndFS(3)
@@ -260,8 +323,7 @@ module API_WSC
             end if
         end do
         
-        
-        call GeomInit(Mesh, fgeom_vect, 0._RP, InputData,.false., ierror)
+        !call GeomInit(Mesh, fgeom_vect, 0._RP, InputData,.false., ierror)
 
     end subroutine
     
@@ -354,8 +416,8 @@ module API_WSC
     subroutine API_parareal_init(fileparam, filegeom, N_iterations, N_ordis)
         
         character (len=50),intent(in)           :: fileparam,filegeom   ! Input files
-        integer :: N_iterations, N_ordis
-        integer :: j,k
+        integer                                 :: N_iterations, N_ordis
+        integer                                 :: j,k
         
         ! Lecture des fichiers d'entree
         call API_Execution(fileparam,filegeom)
@@ -400,7 +462,14 @@ module API_WSC
         
     end subroutine API_parareal_init
     
-    
+        
+    subroutine API_parareal_close()
+
+        deallocate(L_maillages%G, L_maillages%F)
+        deallocate(L_ecoulements%G, L_ecoulements%lambda, L_ecoulements%F)
+        deallocate(L_bodies%G, L_bodies%lambda, L_bodies%F)      
+        
+    end subroutine API_parareal_close
     
     
     subroutine valeur_probe(InputData,Mesh,Ecoulement, nc)
@@ -537,8 +606,7 @@ module API_WSC
         integer :: i_ordi
         integer :: j
         
-        
-        
+
         ! Sauvegarde de l'ecoulement
         call DelEcoulement(L_ecoulements%F(i_ordi+1))
         call NewEcoulement(L_ecoulements%F(i_ordi+1), Mesh%Nnoeud)
@@ -554,23 +622,31 @@ module API_WSC
         do j = 1, NBodies+1
             L_bodies%F(i_ordi+1,j) = Mesh%Body(j)
         end do
-        
-        
+
     end subroutine API_parareal_save_F
     
     
     
     
-    subroutine API_parareal_calcul_lambda(i_iter, i_ordi, jt, filestate_out)
+    subroutine API_parareal_calcul_lambda(i_iter, i_ordi, jt, filestate_out, erreur )
     
-        integer :: i_iter, i_ordi
-        character(len=50),intent(in) :: filestate_out
-        integer, intent(in) ::jt        
+        integer                        :: i_iter, i_ordi
+        character(len=50)              :: filestate_out
+        integer                        ::jt
+        real(rp)                       :: erreur, err_num, err_den
+
+        type(TEcoulement)              :: Ecoulement_G1, Ecoulement_G2, Ecoulement_lambda
+        type(TMaillage)                :: Mesh_lambda
+                
+        !f2py intent(in) :: i_iter, i_ordi, jt, filestate_out
+        !f2py intent(out) :: erreur
         
-        type(TEcoulement) :: Ecoulement_G1, Ecoulement_G2, Ecoulement_lambda
-        type(TMaillage) :: Mesh_lambda
         
         
+        ! Initialisation de l'erreur
+        
+        err_num = 0.
+        err_den = 0.
         
         
         ! Ecoulement
@@ -595,16 +671,20 @@ module API_WSC
 
         ! Phi_p, Eta_p.
         do j = Mesh_lambda%FS%IndFS(1), Mesh_lambda%FS%IndFS(3)
-        
-            
+                    
             Ecoulement_lambda%Phi(j)%perturbation = L_ecoulements%F(i_ordi+1)%Phi(j)%perturbation &
             + Ecoulement_G2%Phi(j)%perturbation &
             - Ecoulement_G1%Phi(j)%perturbation
             
+            err_num = err_num + (Ecoulement_G2%Phi(j)%perturbation - Ecoulement_G1%Phi(j)%perturbation)**2
+            err_den = err_den + Ecoulement_G2%Phi(j)%perturbation**2
             
             Ecoulement_lambda%Eta(j)%perturbation = L_ecoulements%F(i_ordi+1)%Eta(j)%perturbation &
             + Ecoulement_G2%Eta(j)%perturbation &
             - Ecoulement_G1%Eta(j)%perturbation
+            
+            err_num = err_num + (Ecoulement_G2%Eta(j)%perturbation - Ecoulement_G1%Eta(j)%perturbation)**2
+            err_den = err_den + Ecoulement_G2%Eta(j)%perturbation**2
         end do
         
       
@@ -614,20 +694,25 @@ module API_WSC
             Mesh_lambda%Body(nc)%CSolv = L_bodies%F(i_ordi+1, nc)%CSolv + L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv -L_bodies%G(i_iter+1, i_ordi+1, nc)%CSolv
             Mesh_lambda%Body(nc)%GBody = L_bodies%F(i_ordi+1, nc)%GBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%GBody
             Mesh_lambda%Body(nc)%VBody = L_bodies%F(i_ordi+1, nc)%VBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%VBody
+            
+            
+            err_num = err_num + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%MBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%MBody))**2
+            err_num = err_num + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv -L_bodies%G(i_iter+1, i_ordi+1, nc)%CSolv))**2
+            err_num = err_num + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%GBody))**2
+            err_num = err_num + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%VBody))**2
+            
+            
+            err_den = err_den + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%MBody))**2
+            err_den = err_den + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv))**2
+            err_den = err_den + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody))**2
+            err_den = err_den + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody))**2 
+            
         end do
+
         
-        
-        !
-        !call valeur_probe(InputData,L_Maillages%G(i_iter+1, i_ordi+1), L_Ecoulements%G(i_iter+1, i_ordi+1), 1)
-        !call valeur_probe(InputData,L_Maillages%G(i_iter+2, i_ordi+1), L_Ecoulements%G(i_iter+2, i_ordi+1), 1)
-        !call valeur_probe(InputData,Mesh_lambda, L_ecoulements%F(i_ordi+1), 1)
-        !call valeur_probe(InputData,Mesh_lambda, Ecoulement_G1, 1)
-        !call valeur_probe(InputData,Mesh_lambda, Ecoulement_G2, 1)
-        !call valeur_probe(InputData,Mesh_lambda, Ecoulement_lambda, 1)
-        !
-        
+        erreur = sqrt(err_num/err_den)
+
         call Write_State2(Mesh_lambda,Ecoulement_lambda,ti,jt,Starting_time,jFiltering, filestate_out)
-         
         
         call DelEcoulement(Ecoulement_G1)
         call DelEcoulement(Ecoulement_G2)
@@ -653,13 +738,14 @@ module API_WSC
     
     end subroutine
     
+    
+    
+    
     subroutine API_parareal_open_file_force(filename, io)
     
         character (len=50),intent(in)       :: filename         ! Fichier d'ecriture
         integer, intent(in)                 :: io               ! Indice du fichier ou on ecrit
-
-
-            
+                    
         open(unit=io,file=filename,iostat=ios)
         if(ios/=0) stop "Erreur lors de l'ouverture du fichier Wave_elevation"
         write(io, fmt='(50a)') 'Title = "Loads"'
@@ -1002,7 +1088,6 @@ module API_WSC
         
         ! Updating Ecoulement in case of state input file.
         
-
         if(get_State)then
             if(get_State)then
 				
@@ -1043,7 +1128,10 @@ module API_WSC
         end if
         
         ! First calculation of the influence coefficient to know how long the simulation will lasts.
-        call Time_evaluation(Mesh,CD,CS,time_begin,time_end,Nnodes,nt,get_state,jt_init,Starting_time)
+        
+        if (not(bool_coarse)) then
+            call Time_evaluation(Mesh,CD,CS,time_begin,time_end,Nnodes,nt,get_state,jt_init,Starting_time)
+        end if
         
     end subroutine Pre_Temporal_loop
     
@@ -1070,10 +1158,10 @@ module API_WSC
     subroutine Initialization_Mesh0_Ecoulement0()
     
         ! This subroutine re-initializes Mesh0 and Ecoulement0.
-        
+    
         call CopyMaillage(Mesh0, Mesh)
         call CopyEcoulement(Ecoulement0, Ecoulement, Mesh%Nnoeud)
-    
+
     end subroutine Initialization_Mesh0_Ecoulement0
     
     subroutine API_Plots()
@@ -1111,7 +1199,7 @@ module API_WSC
     
     
     
-    subroutine api_interpolation_mesh_ref()
+    subroutine API_interpolation_mesh_ref()
     
         integer :: N
         type(TBody), dimension(:), allocatable      :: Body_copy     ! Table des corps du maillage.
@@ -1133,23 +1221,55 @@ module API_WSC
         call NewMaillage(Mesh, Mesh_ref%Nnoeud,Mesh_ref%NBody)
         call CopyMaillage(Mesh, Mesh_ref)
 
-        ! On garde toutes les variables des corps, sauf les indices qui dépendent du reste du maillage
-        Mesh%Body = Body_copy
+
+        ! On recopie les corps du maillage de reference sauf pour les variables décrivant le mouvement
+        Mesh%Body = Mesh_ref%Body
         do nc = 1, Mesh%NBody
-            Mesh%Body(nc)%IndBody = Mesh_ref%Body(nc)%IndBody
+            Mesh%Body(nc)%Active = Body_copy(nc)%Active
+            Mesh%Body(nc)%MBody = Body_copy(nc)%MBody
+            Mesh%Body(nc)%CSolv = Body_copy(nc)%CSolv
+            Mesh%Body(nc)%GBody = Body_copy(nc)%GBody
+            Mesh%Body(nc)%VBody = Body_copy(nc)%VBody
         end do
+        
 
         allocate(Mesh%ainv1(N,N), Mesh%cond1(N))
-        allocate(Mesh%CD(N,N), Mesh%CS(N,N))
-        
+        allocate(Mesh%CD(N,N), Mesh%CS(N,N))        
         
         Mesh%ainv1 = Mesh_ref%ainv1
         Mesh%cond1 = Mesh_ref%cond1
         Mesh%CD = Mesh_ref%CD
         Mesh%CS = Mesh_ref%CS
+        
+                
+        if (freebodies) then
+            allocate(Mesh%ainv2(Mesh%Nsys2,Mesh%Nsys2), Mesh%cond2(Mesh%Nsys2))
+            Mesh%ainv2 = Mesh_ref%ainv2
+            Mesh%cond2 = Mesh_ref%cond2
+        end if
 
         deallocate(Body_copy)
+
         
+        ! New Mesh0.
+        call DelMaillage(Mesh0)
+        call NewMaillage(Mesh0,Mesh%Nnoeud,NBodies+1) ! +1 for the tank.
+                
+        
+        ! New Ecoulement0.
+        call DelEcoulement(Ecoulement0)
+        call NewEcoulement(Ecoulement0, Mesh%Nnoeud)
+        call IniEcoulement(Ecoulement0, Mesh%Nnoeud, 0._RP)
+        
+                
+        ! Nnodes and Nnodes_FS.
+        Nnodes = Mesh%Nnoeud
+        Nnodes_FS = Mesh%FS%IndFS(3) - Mesh%FS%IndFS(1) + 1
+        
+        
+        
+        if (allocated(RK)) deallocate(RK)
+        allocate(RK(Nnodes_FS,4,2))
 
     end subroutine
     
@@ -1157,7 +1277,7 @@ module API_WSC
     
     subroutine API_init_lineaire()
     
-        call initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, CD, CS)
+        call initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, inputData)
         
     end subroutine API_init_lineaire
     
@@ -1403,7 +1523,7 @@ module API_WSC
         if(allocated(Phi))           deallocate(Phi)
         if(allocated(CD))            deallocate(CD)
         if(allocated(CS))            deallocate(CS)
-        if(allocated(RK))            deallocate(RK)
+        if(allocated(RK))            deallocate(RK)  
         if(allocated(RKVel))         deallocate(RKVel)
         if(allocated(t))             deallocate(t)
         if(allocated(RKABody))      deallocate(RKABody)
@@ -1424,9 +1544,11 @@ module API_WSC
         Nb = 0
         jj = 1
         do nc = Int_Body,Mesh%Nbody
+
             if (Mesh%Body(nc)%CMD(1)) then
                 Nb = Nb + Mesh%Body(nc)%IndBody(3) - Mesh%Body(nc)%IndBody(1) + 1 ! Total number of nodes for all the bodies (not the tank).
                 Ndof = Ndof + InputData%Ndll(jj)
+                                
                 jj = jj + 1
             else
                 ! If a floater is fixed, CMD = F but jj must be increased of 1.
@@ -1436,6 +1558,7 @@ module API_WSC
             end if
         end do
         N = Mesh%Nsys + Nb + Ndof
+
         size_NBody = Mesh%NBody
         allocate(A(N,N), B(N), Sol(N))
         
@@ -1473,16 +1596,27 @@ module API_WSC
         
     end subroutine API_SystLin_FreeBody
     
+    
+    
     subroutine Solving_SystLin()
     
         ! This subroutine solved the linear system.
         
-        if (Solv.eq.0) then
-            call GMRES(A, B, Sol, N,ierror)
-        else  
-            call LU(A, B, Sol, N, ierror)
+        integer :: j
+    
+    
+        if (bool_coarse) then  
+            sol = matmul(Mesh%Ainv2,B)     
+            
+        else
+            if (Solv==0) then
+                call GMRES(A, B, Sol, N, ierror)
+            else  
+                call LU(A, B, Sol, N)
+            end if
         end if
         
+                
         if(ierror/=0) goto 9999
         
         9999 continue
@@ -1493,6 +1627,8 @@ module API_WSC
         
     end subroutine Solving_SystLin
     
+    
+    
     subroutine API_postSL_FreeBody()
     
         ! This subroutine wraps the subroutine postSL_FreeBody.
@@ -1500,6 +1636,8 @@ module API_WSC
         call postSL_FreeBody(Sol, N,Mesh, Ecoulement,size_NBody,InputData)
     
     end subroutine API_postSL_FreeBody
+    
+    
     
     subroutine API_postSL_FreeBody_MB(Nsystem)
             
@@ -1656,21 +1794,34 @@ module API_WSC
         
     end subroutine Deallocating_DSDt
     
+    
+    
     subroutine API_Building_A
     
         ! This subroutine wraps the subroutine Building_A.
         
         call Building_A(Mesh,A,CS,CD,M,Nsl,NBody,size_NBody,N,Nsys,Nb,Nnodes,InputData,NBodies)
-            
+        
     end subroutine API_Building_A
     
+    
+    
     subroutine API_Building_B
-    
-        ! This subroutine wraps the subroutine Building_B.
-    
-        call Building_B(Mesh,Ecoulement,B,CD,Nsys,Nb,Nsl,Nnodes,N,InputData,NBody,size_NBody)
+         integer :: j
         
+        
+        ! This subroutine wraps the subroutine Building_B.
+        if (bool_coarse) then
+            call Building_B(Mesh,Ecoulement,B,Mesh%CD,Nsys,Nb,Nsl,Nnodes,N,InputData,NBody,size_NBody)
+        else
+            call Building_B(Mesh,Ecoulement,B,CD,Nsys,Nb,Nsl,Nnodes,N,InputData,NBody,size_NBody)       
+        end if   
+   
     end subroutine API_Building_B
+    
+    
+    
+    
     
     subroutine API_Initialization_solution()
     
@@ -1684,10 +1835,18 @@ module API_WSC
     
         ! This subroutine wraps the subroutine Preconditioning.
         
-        ! Preconditioning of the linear system
-        call Preconditioning(A,B,N)
-    
+        ! Preconditioning of the linear system (BVP2)
+        
+        if (bool_coarse) then
+            call conditioning_B(B, Mesh%cond2,N)
+        else
+            call Preconditioning(A,B,N)
+        end if
+            
     end subroutine API_Preconditioning
+    
+    
+    
     
     subroutine API_Deallocating()
         
@@ -2276,8 +2435,11 @@ module API_WSC
     subroutine API_GeomInit()
     
         ! This subroutine wraps the subroutine GeomInit.
+    
+        integer :: j
         
         ierror = 0
+
         call GeomInit(Mesh, fgeom_vect, 0._RP, InputData,.false., ierror)
         
     end subroutine API_GeomInit

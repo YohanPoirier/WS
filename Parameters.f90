@@ -2,7 +2,7 @@ module Parameters
 
 use Constantes
 
-
+integer :: aff ! a suppr (utilise pour debugue
 
 real(rp), dimension(4,5000) :: temp_fort
 ! =========================================================================

@@ -106,6 +106,7 @@ type TMaillage
 	type(TBody), dimension(:), allocatable      :: Body     ! Table des corps du maillage.
 	type(TFS)                                   :: FS       ! Free-surface parameters.
 	integer                                     :: Nsys     ! Nombre d'inconnues dans BVP (différent de Nnoeud si la cuve est fixe par exemple).
+    integer                                     :: Nsys2    ! Nombre d'inconnues dans BVP2
 	integer                                     :: Nfsys    ! Nombre de facettes liées aux inconnues (juste pour visu).
 	integer                                     :: TypeM    ! Type of the mesh : 0 --> circular, 1 --> rectangular.
 	real(rp), dimension(5)                      :: DimTank  ! Dimensions of the tank ( Length/diameter, width/diameter, depth, damping dimension parameter, any other parameter). 
