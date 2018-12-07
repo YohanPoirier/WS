@@ -75,9 +75,12 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
             api_wsc.api_geominit()
             
             
-    # api_wsc.parareal_debug("BLA2")
-        
-        
+            
+
+    api_wsc.para_debug_p("fich_{}_P1.dat".format(i_ordi))
+
+    
+  
     N_f, N_n, N_body = api_wsc.import_mesh_dim()
     api_wsc.print_file("N_ noeuds = {} , N_facettes = {}, N_body = {}".format(N_n, N_f, N_body), 1111)
     
@@ -89,17 +92,14 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
     # Calling all the subroutines which are used before the beginning of the temporal loop.
     api_wsc.pre_temporal_loop_parareal()
     
-    #api_wsc.parareal_debug("fichier_ap_temp.dat")
-
-          
 
     td = time.time()
     #api_wsc.save_mesh_ci()
 
     api_wsc.ti = parameters.t0
-    api_wsc.api_parareal_write_wp(io_WP,1)
-    
 
+
+    
 
     if (grossier):
         # Initialization of mesh_ref
@@ -109,7 +109,14 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         # Interpolation to mesh_ref
         else:
             api_wsc.api_interpolation_mesh_ref()
+            
+            
+            
+    api_wsc.api_parareal_write_wp(io_WP,1)
 
+
+            
+            
 
     te = time.time()
     
@@ -289,6 +296,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
     
                 # Position of the floater
                 api_wsc.api_bodymotion()
+                
     
                 # Mise a jour de la vitesse du corps au temps ti
                 api_wsc.api_bodyvelocity()
@@ -317,6 +325,15 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         
 
     tf = time.time()
+    
+    
+    
+    
+    api_wsc.para_debug_p("fich_{}_P3.dat".format(i_ordi))
+    api_wsc.para_debug_e("fich_{}_E3.dat".format(i_ordi))
+    
+    
+    
       
     if filestate_out != "":
         
@@ -373,7 +390,7 @@ def change_size(dx1):
 
 L_N_ordis = [1, 2, 4 , 10, 20, 40, 100, 200, 400]
 
-L_N_ordis = [40]
+L_N_ordis = [10]
 
 L_dx1 = [0.4]
 

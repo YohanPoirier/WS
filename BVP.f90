@@ -149,6 +149,7 @@ subroutine initialisation_lineaire(Ecoulement, Mesh, Mesh_ref, Nnodes, inputData
     !Copy mesh-------------------------------------------------------
     
     call NewMaillage(Mesh_ref, Mesh%Nnoeud,Mesh%NBody)
+
     call CopyMaillage(Mesh_ref, Mesh)
 
     allocate(Mesh_ref%ainv1(N,N), Mesh_ref%cond1(N))

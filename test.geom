@@ -22,9 +22,9 @@
     Mesh file has to be read (T) or not (F)		:   is_Mesh_file    :   F
     File for inertia                                    :   Mesh_file       :   Sphere_WSC_clipped.dat
     Type of geometry (1:cube, 2:cylinder, 5:axisym)     :   igtype          :   2
-    Initial position (m)                                :   Position_1      :   [0. 0. -0.012]
+    Initial position (m)                                :   Position_1      :   [0. 0. 0.0]
     Initial angular position (rad)                      :   Position_2      :   [0. 0. 0.]
-    Cog				                         :   PositionG       :   [0. 0. -0.012]
+    Cog				                         :   PositionG       :   [0. 0. 0.0]
     Mass of the system (kg)                             :   mass_body       :   64.4
     Inertia file has to be read (1) or not (0)		:   is_Inertia_File :   T
     File for inertia                                    :   file_inertia    :   Inertia_Body_1.dat
@@ -48,5 +48,5 @@
     Position                                    	:   PRessort        :   [0. 0 0]
     Damping coefficient                         	:   B_PTO           :   0
     Viscous force, Morison coefficient          	:   Cd_Morison      :   0
-    Degree of Freedom                           	:   DOF             :   [F F T F F F]
+    Degree of Freedom                           	:   DOF             :   [F F F F F F]
 #--------------------------------------------------------------------------------------------------

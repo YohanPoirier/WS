@@ -180,7 +180,33 @@ module API_WSC
     
     ! Yohan ----------------------------------------
     
-
+    subroutine para_debug_P(filename)
+        character (len=50) :: filename
+        integer :: j
+        
+        open(unit = 1114, file = filename)
+        
+        do j = 1, Mesh%Nnoeud
+            write(1114,*) j, Mesh%Tnoeud(j)%Pnoeud
+        end do
+        
+        close(unit = 1114)
+    end subroutine
+        
+            
+     subroutine para_debug_E(filename)
+        character (len=50) :: filename
+        integer :: j
+        
+        open(unit = 1114, file = filename)
+        
+        do j = 1, Mesh%Nnoeud
+            write(1114,*) j, Ecoulement%Phi(j)%perturbation
+        end do
+        
+        close(unit = 1114)
+    end subroutine
+        
             
 
     
@@ -1206,7 +1232,7 @@ module API_WSC
         integer :: nc
 
         ! Interpolation
-        
+
         call Interpolation_FS(Mesh,Mesh_ref,Ecoulement,ti,.true.,ierror)
       
         !Copy mesh (but not the body)

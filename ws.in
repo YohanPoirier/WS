@@ -8,7 +8,7 @@
     Number of components (max 200)              :   NHoule          :   1
     Direction (rad)                             :   directionAiry   :   [0.]
     Pulsation (rad/s)                           :   omega           :   [6.4]
-    Amplitude (m)                               :   Aphi            :   [0.00001]
+    Amplitude (m)                               :   Aphi            :   [0.01]
     Phase (rad)                               	:   Phi             :   [0.]
 # Rienecker & Fenton (if Htype = 2)
     File                                        :   filecoeff       :   waverf.cof  
@@ -45,7 +45,7 @@
     Latching Method				:   is_latching	    :	F
     Starting time                               :   t0              :   0.
     Time step                                   :   dt              :   0.01
-    Number of time step                         :   nt              :   1500
+    Number of time step                         :   nt              :   300
     Time instant for initial ramp               :   [T1,T2]         :   [0. 1.]
     Starting time for output                    :   Tout            :   0.
     Time step for output                        :   nout            :   1

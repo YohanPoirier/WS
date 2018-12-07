@@ -223,8 +223,16 @@ subroutine ExternalForces(Mesh, Ecoulement, Fext, t, WeightOrNot,InputData,size_
         Fadd = 0._RP
         
         ! Weight.
+
         if (WeightOrNot == 1)then
-            if (hydrostatique .and. not(lineaireBody .or. forcage_hydrostatique_lineaire)) Fext(1:3,jj) = [0._rp, 0._rp,-Mesh%Body(nc)%Mass*g] ! Force
+            if (hydrostatique .and. not(lineaireBody .or. forcage_hydrostatique_lineaire)) then
+                Fext(1:3,jj) = [0._rp, 0._rp,-Mesh%Body(nc)%Mass*g] ! Force
+       
+                Fext(1:3,jj) = Fext(1:3,jj) + [0._rp, 0._rp, 1.772184543_rp] !  a suppr (1111)
+
+            end if
+                        
+            
             if(iFixPoint)then
                 ! Motion equation solved at A fixed in the inertial frame (Csolv = (FixPointPos,angles)).
                 AG = Mesh%Body(nc)%GBody(1:3) - FixPointPos
@@ -246,6 +254,8 @@ subroutine ExternalForces(Mesh, Ecoulement, Fext, t, WeightOrNot,InputData,size_
                 Fadd(j) = 0._rp
             end if
         end do
+        
+
         do j = 4,6 ! Moment.
             if(InputData%dll_dir(j,jj))then
                 Fadd(j) = -InputData%MuPTO(jj)*Mesh%Body(nc)%VBody(j)
@@ -274,10 +284,14 @@ subroutine ExternalForces(Mesh, Ecoulement, Fext, t, WeightOrNot,InputData,size_
             Fadd(4:6) = 0._RP
         end if
         
+
+        
         ! Total external loads.
         Fext(1:6,jj) = Fext(1:6,jj) + Fadd
-        
+
         jj = jj + 1
+        
+        
         
     end do
 
@@ -462,7 +476,7 @@ subroutine PostSL_FreeBody(X, size_X,Mesh, Ecoulement,size_NBody,InputData)
                 if(InputData%dll_dir(j,jj))then
                     k = k+1
                     ! Acceleration of the floater
-                    Mesh%Body(nc)%ABody(j) = X(Nsys+Nb+Ndof+k)                   
+                    Mesh%Body(nc)%ABody(j) = X(Nsys+Nb+Ndof+k)
                 else
                     Mesh%Body(nc)%ABody(j) = 0._rp
                 end if
@@ -1444,6 +1458,7 @@ subroutine get_Th(Mesh,Ecoulement,Fext,InertiaTerms,TimeRamp,InputData,size_Fext
     real(rp),allocatable                            :: SM(:)            ! Gradient and hydrostatics before the integration in the Bernoulli equation.
     real(rp)                                        :: GPhi2            ! Square of the grandient.
     real(rp), dimension(3)                          :: GPhi0            ! Gradient of the incident flow.
+    
 
 
     ! This subroutine computes the coefficients Th.
@@ -1459,6 +1474,7 @@ subroutine get_Th(Mesh,Ecoulement,Fext,InertiaTerms,TimeRamp,InputData,size_Fext
             ! Allocation
             allocate(SM(Mesh%Body(nc)%IndBody(3) - Mesh%Body(nc)%IndBody(1) + 1))
             SM = 0._RP
+
             
             do k = Mesh%Body(nc)%IndBody(1),Mesh%Body(nc)%IndBody(3)
                 j = j + 1
@@ -1470,13 +1486,15 @@ subroutine get_Th(Mesh,Ecoulement,Fext,InertiaTerms,TimeRamp,InputData,size_Fext
                                 
                 ! Hydrostatics
                 if (hydrostatique) then ! Probably a problem with the hydrostatics (PYW)
+
                     if (lineaireBody .or. forcage_hydrostatique_lineaire) then 
                         SM(j) = SM(j) + g*Mesh%Body(nc)%CSolv(3)
                     else
                         SM(j) = SM(j) + g*Mesh%Tnoeud(k)%Pnoeud(3)
-                    end if 
+                    end if                 
                 end if
             end do
+            
             
             k = 0
             do idir = 1,6
@@ -1484,9 +1502,11 @@ subroutine get_Th(Mesh,Ecoulement,Fext,InertiaTerms,TimeRamp,InputData,size_Fext
                     k = k + 1
                     ! Hydrodynamics
                     Mesh%Body(nc)%Th(k) = dot_product(Mesh%Body(nc)%CT(idir,1:Mesh%Body(nc)%IndBody(3) - Mesh%Body(nc)%IndBody(1) + 1),SM(1:Mesh%Body(nc)%IndBody(3) - Mesh%Body(nc)%IndBody(1) + 1))
+
                     
                     ! External forces
                     Mesh%Body(nc)%Th(k) = Mesh%Body(nc)%Th(k) + Fext(idir,jj)
+                                    
                     
                     ! Inertia terms for the rotation
                     if(idir.gt.3)then
@@ -1496,8 +1516,11 @@ subroutine get_Th(Mesh,Ecoulement,Fext,InertiaTerms,TimeRamp,InputData,size_Fext
                 end if
             enddo
             
+
+             
             ! Deallocating
             deallocate(SM)
+
             
             jj = jj + 1
             
@@ -1716,7 +1739,7 @@ subroutine Building_B(Mesh,Ecoulement,B,CD,Nsys,Nb,Nsl,Nnodes,N,InputData,NBody,
     do nc = 1,Mesh%NBody
         if(Mesh%Body(nc)%CMD(1))then            
             B(Nsys+Nb+Ndof+1:Nsys+Nb+Ndof+InputData%ndll(jj)) = Mesh%Body(nc)%Th(1:InputData%ndll(jj))
-                                                
+            
             Ndof = Ndof + InputData%ndll(jj)
             jj = jj + 1
         else

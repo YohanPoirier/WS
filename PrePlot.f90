@@ -1225,6 +1225,7 @@ subroutine PlotWaveElevation2(t,InputData,Mesh,Ecoulement, io, nc)
     character(len=1)                    :: trans            !
     integer                             :: lda, nrhs        ! Size of the matrix A and number of rhs.
     integer, allocatable                :: ipiv(:)          !
+    integer :: j !  a suppr
         
     ! This subroutine writes the wave elevation output files.
     
@@ -1251,13 +1252,14 @@ subroutine PlotWaveElevation2(t,InputData,Mesh,Ecoulement, io, nc)
             ClosestPoints = k
         end if
     end do
+    
 
         
     if(is_BS)then
             
         ! Spline ordre at the closest point of the wave probe.
         Na = Nordre(Mesh%Tnoeud(ClosestPoints)%Ordre)
-            
+
         ! Number of neighbours of the closest point.
         NVoisin = Mesh%Tnoeud(ClosestPoints)%NVoisin(2)-1 ! -1 because the point itself is counted.
             
@@ -1270,6 +1272,7 @@ subroutine PlotWaveElevation2(t,InputData,Mesh,Ecoulement, io, nc)
             ! Neighbours of the points.
             Pvoisin(1:3,k) = Mesh%Tnoeud(abs(Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)))%Pnoeud ! k = 1 is Mesh%Tnoeud(ClosestPoints) itself.
                 
+            
             if(Mesh%Tnoeud(abs(Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)))%NPanneau.ne.0)then
                 print*,"PlotWaveElevation: Point is not on the FS:"
                 pause
@@ -1277,6 +1280,7 @@ subroutine PlotWaveElevation2(t,InputData,Mesh,Ecoulement, io, nc)
                 
             if (Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1).lt.0) Pvoisin(2,k) = - Pvoisin(2,k)
             B(k) = Ecoulement%Eta(abs(Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)))%perturbation
+      
             
             !print*, k, B(k), Mesh%Tnoeud(ClosestPoints)%TVoisin(k,1)
         end do
@@ -1284,7 +1288,7 @@ subroutine PlotWaveElevation2(t,InputData,Mesh,Ecoulement, io, nc)
             
         ! A
         call SplineMatrix(Nvoisin, Mesh%Tnoeud(ClosestPoints)%Ordre, Pvoisin, A)
-            
+             
         ! Inversion of the linear system
         lda = Nvoisin + Na
         allocate(ipiv(lda))
@@ -1299,10 +1303,13 @@ subroutine PlotWaveElevation2(t,InputData,Mesh,Ecoulement, io, nc)
         end if
         call dgetrs(trans,lda,nrhs,A,lda,ipiv,B,lda,info) ! The B-spline coefficients are in B.
         deallocate(ipiv)
-            
+
+        
         ! Eta_p
         call SplineF(Nvoisin, Mesh%Tnoeud(ClosestPoints)%Ordre, B(1:Nvoisin+Na), InputData%PositionWP(1:3,nc), Pvoisin, Eta_Pertubation) ! InputData%PositionWP(1:3,nc) is where SplineF is computed.
-            
+
+        
+        
         ! Deallocations
         if(allocated(Pvoisin)) deallocate(Pvoisin)
         if(allocated(B)) deallocate(B)
