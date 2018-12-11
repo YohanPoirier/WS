@@ -74,12 +74,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         if not(grossier):
             api_wsc.api_geominit()
             
-            
-            
 
-    api_wsc.para_debug_p("fich_{}_P1.dat".format(i_ordi))
-
-    
   
     N_f, N_n, N_body = api_wsc.import_mesh_dim()
     api_wsc.print_file("N_ noeuds = {} , N_facettes = {}, N_body = {}".format(N_n, N_f, N_body), 1111)
@@ -109,14 +104,11 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         # Interpolation to mesh_ref
         else:
             api_wsc.api_interpolation_mesh_ref()
-            
-            
-            
+
+
     api_wsc.api_parareal_write_wp(io_WP,1)
 
 
-            
-            
 
     te = time.time()
     
@@ -131,6 +123,15 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         api_wsc.print_file("Iteration n {}".format(jt), 1111)
 
         t2 = time.time()
+        
+        
+        # Peut etre a supprimer
+        if jt == 1 :
+            api_wsc.forcedremesh = -1
+        else :
+            api_wsc.forcedremesh = 0
+        
+     
 
 
         # RK4 loop
@@ -146,9 +147,14 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
             api_wsc.api_rci_manager(jk)
             
 
+                    
+
             # Lissage
             if((jk == 1) and (jt !=1)):
                 api_wsc.api_lissage(jt)
+                
+                
+                
                 
     
             #----------------------------------------------------------------------------------
@@ -163,9 +169,9 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
             if(jk == 1):
                 api_wsc.api_plots()
                 
-                
-     
-            
+
+                    
+
             # New mesh if necessary
             #if ((jk == 1) and (jt != 1) and parameters.deformmesh == -1):
             if ((jk == 1) and parameters.deformmesh == -1):
@@ -184,6 +190,8 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
                 api_wsc.boolremesh = False # 0 = False
 
 
+
+
             # Reinitialisation de Mesh0 et Ecoulement0 avant la resolution de la passe RK1
             if (jk == 1):
                 api_wsc.initialization_mesh0_ecoulement0()
@@ -195,6 +203,8 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
             if (parameters.deformmesh == -1): # -1 = True
                 api_wsc.api_meshvel()
                 
+
+                    
             #Resolution du probleme surfacique
             api_wsc.api_solbvp(False)
 
@@ -204,6 +214,8 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
             # Computation of DPhiDt and DEtaDt and spatial differentiations
             api_wsc.api_derive()
             
+            
+
     
             # Hydrodynamic loads
             if (parameters.freebodies == -1): # -1 = True
@@ -320,6 +332,9 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
         # Writting the time info in the command window
         api_wsc.api_writting_time_info(jt)
         
+        
+        
+
 
         api_wsc.api_parareal_write_wp(io_WP,1)
         
@@ -329,11 +344,7 @@ def calcul(grossier, nt, io_WP, io_F, filestate_in = "", filestate_out = "") :
     
     
     
-    api_wsc.para_debug_p("fich_{}_P3.dat".format(i_ordi))
-    api_wsc.para_debug_e("fich_{}_E3.dat".format(i_ordi))
-    
-    
-    
+
       
     if filestate_out != "":
         
@@ -376,7 +387,7 @@ def change_size(dx1):
     # 
     # parameters.hrefxfs = K*0.05
     # parameters.hrefyfs = K*0.05
-    #parameters.dsi = K*0.002
+    # parameters.dsi = K*0.002
     
  
     
@@ -419,10 +430,11 @@ for dx1 in L_dx1 :
         io_WP = 7988
         io_F = 4524
         
-        
+
         
         api_wsc.api_parareal_init('ws.in','test.geom', N_iterations, N_ordis)
         
+
         parameters.affich = 0
         
         parameters.bool_coarse_init = 0
@@ -466,14 +478,18 @@ for dx1 in L_dx1 :
         
             calcul(True, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
         
-        
-            api_wsc.api_parareal_save_g(0, i_ordi)
+
+            api_wsc.api_parareal_save_g(i_ordi)
             
-        
+
             api_wsc.api_parareal_close_file(io_WP)
             api_wsc.api_parareal_close_file(io_F)
             
+            
+            
+
         
+        api_wsc.api_parareal_next_g(N_ordis) 
             
         api_wsc.print_file("", 1111)
         api_wsc.print_file("----------------------------------------------------------------", 1111)
@@ -539,8 +555,8 @@ for dx1 in L_dx1 :
                 api_wsc.api_parareal_close_file(io_F)
                 
             tb = time.time()
-                
-            
+
+
             t_f += tb-ta
                 
             # Calcul grossier (en sequentiel)
@@ -579,13 +595,14 @@ for dx1 in L_dx1 :
                 
                 calcul(True, pas_ordi, io_WP, io_F, filestate_in, filestate_out) 
         
-                api_wsc.api_parareal_save_g(i_iter+1, i_ordi)
+                api_wsc.api_parareal_save_g(i_ordi)
         
                 filestate_out = "output_WP/lambda_{}_{}.dat".format(i_iter + 1, i_ordi+1)
                 
                 t112 = time.time()
-        
+
                 erreur = api_wsc.api_parareal_calcul_lambda(i_iter, i_ordi, 1, filestate_out) #jt = 1 (arbitraire, a verifier)
+                
                 
                 t113 = time.time()
                 
@@ -603,6 +620,10 @@ for dx1 in L_dx1 :
                 api_wsc.api_parareal_close_file(io_WP)
                 api_wsc.api_parareal_close_file(io_F)
                 
+                
+            api_wsc.api_parareal_next_g(N_ordis) 
+                
+        
         
             tb = time.time()
                 

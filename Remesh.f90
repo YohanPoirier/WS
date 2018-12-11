@@ -1496,8 +1496,7 @@ subroutine CheckMesh3D(Maillage,ti,boolBodies,boolFS,InputData)
         ! Metric shape.
 	    fshape(j) = d3*d3+d2*d2+dot_product(L2,L3)
         fshape(j) = (2._rp*sqrt(3._rp)*area)/fshape(j)
-        
-        
+
         if(Maillage%Tfacette(j)%NPanneau .ge. Int_Body)then ! Bodies
             
             ! Reference length for each panel.            
@@ -1515,11 +1514,13 @@ subroutine CheckMesh3D(Maillage,ti,boolBodies,boolFS,InputData)
     do j = Maillage%FS%IndFS(2),Maillage%FS%IndFS(4)
 
         ! fshape.
-        if (fshape(j).lt.0.25_rp) then
+        if (fshape(j).lt.0.25_rp) then ! 1111 (condition d'origine)
+        !if (fshape(j).lt.0.30_rp) then
             id = Maillage%Tfacette(j)%Tnoeud(1:3)
             print*,""
             print*,"Free surface"
             print*, 'Shape :', j, fshape(j)
+            write(1111,*) 'Shape :', j, fshape(j)
             print*,"Node 1:"
             print*, Maillage%Tnoeud(id(1))%PNoeud
             print*,"Node 2:"
@@ -1542,11 +1543,13 @@ subroutine CheckMesh3D(Maillage,ti,boolBodies,boolFS,InputData)
             NFBT = Maillage%Body(nc)%IndBody(4)
             do j = NFB1,NFBT
                 ! fshape.
-                if (fshape(j).lt.0.25_rp) then
+                if (fshape(j).lt.0.25_rp) then ! 1111 (condition d'origine)
+                !if (fshape(j).lt.0.30_rp) then
                     id = Maillage%Tfacette(j)%Tnoeud(1:3)
                     print*,""
                     print*,"Body",nc
                     print*,'Shape :', j, fshape(j)
+                    write(1111,*) 'Shape :', j, fshape(j)
                     print*,"Node 1:"
                     print*, Maillage%Tnoeud(id(1))%PNoeud
                     print*,"Node 2:"
@@ -1562,6 +1565,7 @@ subroutine CheckMesh3D(Maillage,ti,boolBodies,boolFS,InputData)
                     id = Maillage%Tfacette(j)%Tnoeud(1:3)
                     print*,"Body",nc
                     print*,'Size :', j, fsize(j)
+                    write(1111,*) 'Size :', j, fsize(j)
                     print*,"Node 1:"
                     print*, Maillage%Tnoeud(id(1))%PNoeud
                     print*,"Node 2:"
@@ -1717,6 +1721,7 @@ subroutine Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_ve
         ! Remeshing if necessary.
         if(boolRemesh)then
 
+            write(1111,*) "remesh"
             print*,""
             print*,"Remeshing wanted:"
             print*,"Bodies mesh quality: ",MeshQualityBodies
@@ -1755,10 +1760,7 @@ subroutine Regeneration_Mesh(Mesh,Ecoulement,ti,boolRemesh,boolRemeshFS,fgeom_ve
             
             1 continue
             
-            ! Remeshing.
-            
-
-            
+            ! Remeshing.           
             if(RemeshFS .or. (not(RemeshFS) .and. is_body))then ! No remeshing at all if no body and no remeshing of the FS.
                 call compute_mesh_fgeom(Mesh,Ecoulement,ti,fgeom_vect,fdomaine,nface,Grid,nb_point,nb_tri,ierror,InputData,nRemesh,boolRemeshFS,tab2,n_tab2,n_tab)
             end if         

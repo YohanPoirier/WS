@@ -450,40 +450,25 @@ module API_WSC
         close(ioIntersection)
 
         ! Initialisation de la liste des maillages
-        allocate(L_maillages%G(N_iterations+1, N_ordis))
         allocate(L_maillages%F(N_ordis))
-        
-        
-        do j = 1, N_iterations+1
-            do k = 1, N_ordis
-                call NewMaillage(L_maillages%G(j,k),1,1)
-            end do
-        end do
-        
         do k = 1, N_ordis
             call NewMaillage(L_maillages%F(k),1,1)
         end do
         
         ! Initialisation de la liste des ecoulements
-        allocate(L_ecoulements%G(N_iterations+1, N_ordis))
-        allocate(L_ecoulements%lambda(N_iterations+1, N_ordis))
+        allocate(L_ecoulements%G(2, N_ordis))
         allocate(L_ecoulements%F(N_ordis))
         
-        
-        do j = 1, N_iterations+1
-            do k = 1, N_ordis
-                call NewEcoulement(L_ecoulements%G(j,k),1)
-                call NewEcoulement(L_ecoulements%lambda(j,k),1)
-            end do
-        end do
-        
+
         do k = 1, N_ordis
+            call NewEcoulement(L_ecoulements%G(1,k),1)
+            call NewEcoulement(L_ecoulements%G(2,k),1)
             call NewEcoulement(L_ecoulements%F(k),1)
         end do
+     
 
         ! Initialisation de la liste des corps
-        allocate(L_bodies%G(N_iterations+1, N_ordis, Nbodies+1))
-        allocate(L_bodies%lambda(N_iterations+1, N_ordis, Nbodies+1))
+        allocate(L_bodies%G(2, N_ordis, Nbodies+1))
         allocate(L_bodies%F(N_ordis, Nbodies+1))        
         
     end subroutine API_parareal_init
@@ -491,9 +476,9 @@ module API_WSC
         
     subroutine API_parareal_close()
 
-        deallocate(L_maillages%G, L_maillages%F)
-        deallocate(L_ecoulements%G, L_ecoulements%lambda, L_ecoulements%F)
-        deallocate(L_bodies%G, L_bodies%lambda, L_bodies%F)      
+        deallocate(L_maillages%F)
+        deallocate(L_ecoulements%G, L_ecoulements%F)
+        deallocate(L_bodies%G, L_bodies%F)      
         
     end subroutine API_parareal_close
     
@@ -601,29 +586,46 @@ module API_WSC
     end subroutine valeur_probe
     
     
-    subroutine API_parareal_save_G(i_iter, i_ordi)
-
-        integer :: i_iter, i_ordi
+    subroutine API_parareal_save_G(i_ordi)
+        integer :: j
+        integer :: i_ordi
+        
         
         ! Sauvegarde de l'ecoulement
-        call DelEcoulement(L_ecoulements%G(i_iter+1, i_ordi+1))
-        call NewEcoulement(L_ecoulements%G(i_iter+1, i_ordi+1), Mesh%Nnoeud)
-        call CopyEcoulement( L_ecoulements%G(i_iter+1, i_ordi+1), Ecoulement, Mesh%Nnoeud)
+        call DelEcoulement(L_ecoulements%G(2, i_ordi+1))
+        call NewEcoulement(L_ecoulements%G(2, i_ordi+1), Mesh_ref%Nnoeud)
+        call CopyEcoulement(L_ecoulements%G(2, i_ordi+1), Ecoulement, Mesh_ref%Nnoeud)
 
         
-        ! Sauvegarde du maillage
-        call DelMaillage(L_maillages%G(i_iter+1,i_ordi+1))
-        call NewMaillage(L_maillages%G(i_iter+1,i_ordi+1), Mesh%Nnoeud, NBodies+1)
-        call CopyMaillage(L_maillages%G(i_iter+1, i_ordi+1), Mesh)
-
         ! Sauvegarde des corps
-
         do j = 1, NBodies+1
-            L_bodies%G(i_iter+1, i_ordi+1,j) = Mesh%Body(j)
+            L_bodies%G(2, i_ordi+1,j) = Mesh%Body(j)
         end do
         
-        
+    
     end subroutine API_parareal_save_G
+    
+    
+    subroutine API_parareal_next_G(N_ordis) 
+    
+        integer :: N_ordis
+        integer :: j,k
+        
+        ! Si on traite le dernier ordi, le pas courant devient le pas précédent
+        do j =  1, N_ordis
+            ! Sauvegarde de l'ecoulement
+            call DelEcoulement(L_ecoulements%G(1, j))
+            call NewEcoulement(L_ecoulements%G(1, j), Mesh_ref%Nnoeud)
+            call CopyEcoulement(L_ecoulements%G(1, j), L_ecoulements%G(2, j), Mesh_ref%Nnoeud)
+
+        
+            ! Sauvegarde des corps
+            do k = 1, NBodies+1
+                L_bodies%G(1, j, k) = L_bodies%G(2, j, k)
+            end do
+        end do
+        
+    end subroutine
     
     
     
@@ -658,7 +660,7 @@ module API_WSC
     
         integer                        :: i_iter, i_ordi
         character(len=50)              :: filestate_out
-        integer                        ::jt
+        integer                        :: jt
         real(rp)                       :: erreur, err_num, err_den
 
         type(TEcoulement)              :: Ecoulement_G1, Ecoulement_G2, Ecoulement_lambda
@@ -676,11 +678,11 @@ module API_WSC
         
         
         ! Ecoulement
-        call NewEcoulement(Ecoulement_G1, L_Maillages%G(i_iter+1, i_ordi+1)%Nnoeud)
-        call CopyEcoulement(Ecoulement_G1, L_Ecoulements%G(i_iter+1, i_ordi+1), L_Maillages%G(i_iter+1, i_ordi+1)%Nnoeud)
+        call NewEcoulement(Ecoulement_G1, Mesh_ref%Nnoeud)
+        call CopyEcoulement(Ecoulement_G1, L_Ecoulements%G(1, i_ordi+1), Mesh_ref%Nnoeud)
         
-        call NewEcoulement(Ecoulement_G2, L_Maillages%G(i_iter+2, i_ordi+1)%Nnoeud)
-        call CopyEcoulement(Ecoulement_G2, L_Ecoulements%G(i_iter+2, i_ordi+1), L_Maillages%G(i_iter+2, i_ordi+1)%Nnoeud)
+        call NewEcoulement(Ecoulement_G2, Mesh_ref%Nnoeud)
+        call CopyEcoulement(Ecoulement_G2, L_Ecoulements%G(2, i_ordi+1), Mesh_ref%Nnoeud)
         
         call NewEcoulement(Ecoulement_lambda, L_Maillages%F(i_ordi+1)%Nnoeud)
 
@@ -691,8 +693,8 @@ module API_WSC
         
 
         ! Interpolation des maillages grossiers
-        call Interpolation_FS(L_Maillages%G(i_iter+1, i_ordi+1), Mesh_lambda, Ecoulement_G1, ti,.true.,ierror)
-        call Interpolation_FS(L_Maillages%G(i_iter+2, i_ordi+1), Mesh_lambda, Ecoulement_G2, ti,.true.,ierror)
+        call Interpolation_FS(Mesh_ref, Mesh_lambda, Ecoulement_G1, ti,.true.,ierror)
+        call Interpolation_FS(Mesh_ref, Mesh_lambda, Ecoulement_G2, ti,.true.,ierror)
         
 
         ! Phi_p, Eta_p.
@@ -704,35 +706,34 @@ module API_WSC
             
             err_num = err_num + (Ecoulement_G2%Phi(j)%perturbation - Ecoulement_G1%Phi(j)%perturbation)**2
             err_den = err_den + Ecoulement_G2%Phi(j)%perturbation**2
-            
+                        
             Ecoulement_lambda%Eta(j)%perturbation = L_ecoulements%F(i_ordi+1)%Eta(j)%perturbation &
             + Ecoulement_G2%Eta(j)%perturbation &
             - Ecoulement_G1%Eta(j)%perturbation
             
             err_num = err_num + (Ecoulement_G2%Eta(j)%perturbation - Ecoulement_G1%Eta(j)%perturbation)**2
             err_den = err_den + Ecoulement_G2%Eta(j)%perturbation**2
+
         end do
         
       
         ! Corps
         do nc = 1, Mesh_lambda%NBody
-            Mesh_lambda%Body(nc)%MBody = L_bodies%F(i_ordi+1, nc)%MBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%MBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%MBody
-            Mesh_lambda%Body(nc)%CSolv = L_bodies%F(i_ordi+1, nc)%CSolv + L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv -L_bodies%G(i_iter+1, i_ordi+1, nc)%CSolv
-            Mesh_lambda%Body(nc)%GBody = L_bodies%F(i_ordi+1, nc)%GBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%GBody
-            Mesh_lambda%Body(nc)%VBody = L_bodies%F(i_ordi+1, nc)%VBody + L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%VBody
-            
-            
-            err_num = err_num + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%MBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%MBody))**2
-            err_num = err_num + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv -L_bodies%G(i_iter+1, i_ordi+1, nc)%CSolv))**2
-            err_num = err_num + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%GBody))**2
-            err_num = err_num + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody -L_bodies%G(i_iter+1, i_ordi+1, nc)%VBody))**2
-            
-            
-            err_den = err_den + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%MBody))**2
-            err_den = err_den + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%CSolv))**2
-            err_den = err_den + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%GBody))**2
-            err_den = err_den + norm2((L_bodies%G(i_iter+2, i_ordi+1, nc)%VBody))**2 
-            
+            Mesh_lambda%Body(nc)%MBody = L_bodies%F(i_ordi+1, nc)%MBody + L_bodies%G(2, i_ordi+1, nc)%MBody -L_bodies%G(1, i_ordi+1, nc)%MBody
+            Mesh_lambda%Body(nc)%CSolv = L_bodies%F(i_ordi+1, nc)%CSolv + L_bodies%G(2, i_ordi+1, nc)%CSolv -L_bodies%G(1, i_ordi+1, nc)%CSolv
+            Mesh_lambda%Body(nc)%GBody = L_bodies%F(i_ordi+1, nc)%GBody + L_bodies%G(2, i_ordi+1, nc)%GBody -L_bodies%G(1, i_ordi+1, nc)%GBody
+            Mesh_lambda%Body(nc)%VBody = L_bodies%F(i_ordi+1, nc)%VBody + L_bodies%G(2, i_ordi+1, nc)%VBody -L_bodies%G(1, i_ordi+1, nc)%VBody
+
+            err_num = err_num + norm2((L_bodies%G(2, i_ordi+1, nc)%MBody -L_bodies%G(1, i_ordi+1, nc)%MBody))**2
+            err_num = err_num + norm2((L_bodies%G(2, i_ordi+1, nc)%CSolv -L_bodies%G(1, i_ordi+1, nc)%CSolv))**2
+            err_num = err_num + norm2((L_bodies%G(2, i_ordi+1, nc)%GBody -L_bodies%G(1, i_ordi+1, nc)%GBody))**2
+            err_num = err_num + norm2((L_bodies%G(2, i_ordi+1, nc)%VBody -L_bodies%G(1, i_ordi+1, nc)%VBody))**2
+
+            err_den = err_den + norm2((L_bodies%G(2, i_ordi+1, nc)%MBody))**2
+            err_den = err_den + norm2((L_bodies%G(2, i_ordi+1, nc)%CSolv))**2
+            err_den = err_den + norm2((L_bodies%G(2, i_ordi+1, nc)%GBody))**2
+            err_den = err_den + norm2((L_bodies%G(2, i_ordi+1, nc)%VBody))**2 
+
         end do
 
         

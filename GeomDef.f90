@@ -70,11 +70,15 @@ subroutine Generation_Geometry(fgeom_vect,fdomaine,nface,tab2,n_tab2,rep0,InputD
 
                 fgeom_vect%nface_vect(jj+1) = nface - nface_old ! Number of faces for this geometry.
                 
-                if (lineaireBody) then
-                    call update_geom(rep0,fgeom_vect%geom(jj),InputData%Position(:,2,jj),[0._rp,0._rp,0._rp]) !à vérifier (1111)
-                else
-                    call update_geom(rep0,fgeom_vect%geom(jj),InputData%Position(:,2,jj),InputData%Position(:,1,jj))
-                end if
+                
+                call update_geom(rep0,fgeom_vect%geom(jj),InputData%Position(:,2,jj),InputData%Position(:,1,jj))
+                
+                
+                !if (lineaireBody) then
+                !    call update_geom(rep0,fgeom_vect%geom(jj),InputData%Position(:,2,jj),[0._rp,0._rp,0._rp]) !à vérifier (1111)
+                !else
+                !    call update_geom(rep0,fgeom_vect%geom(jj),InputData%Position(:,2,jj),InputData%Position(:,1,jj))
+                !end if
 
             end do
         end if

@@ -228,7 +228,7 @@ subroutine ExternalForces(Mesh, Ecoulement, Fext, t, WeightOrNot,InputData,size_
             if (hydrostatique .and. not(lineaireBody .or. forcage_hydrostatique_lineaire)) then
                 Fext(1:3,jj) = [0._rp, 0._rp,-Mesh%Body(nc)%Mass*g] ! Force
        
-                Fext(1:3,jj) = Fext(1:3,jj) + [0._rp, 0._rp, 1.772184543_rp] !  a suppr (1111)
+                !Fext(1:3,jj) = Fext(1:3,jj) + [0._rp, 0._rp, 1.772184543_rp] !  a suppr (1111)
 
             end if
                         

@@ -2156,6 +2156,8 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
     integer, allocatable                :: ipiv(:)          !
     type(TEcoulement)                   :: EcoulementTmp    ! Temporary flow parameters.
     
+    real(rp) :: ta, tb, tc ! a suppr
+    
     ! This subroutine initializes Phi_p and Eta_p on the free surface of the new mesh from the old one.
 
     ! Allocation
@@ -2171,8 +2173,11 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
     ! Interpolation if FS remeshing.
     if(LocalRemeshFS)then
     
-        do j = NewMesh%FS%IndFS(1),NewMesh%FS%IndFS(3) ! New mesh
+    
+    
+        call CPU_time(ta)
         
+        do j = NewMesh%FS%IndFS(1),NewMesh%FS%IndFS(3) ! New mesh
             ! Searching the closest points of NewMesh%Tnoeud(j)%Pnoeud.
             dist = 999._RP
             do k = OldMesh%FS%IndFS(1), OldMesh%FS%IndFS(3) ! Old mesh
@@ -2182,8 +2187,14 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
                     ClosestPoints(j) = k
                 end if
             end do
+        end do
+    
+    
+        call CPU_TIME(tb)
         
-            
+        
+        do j = NewMesh%FS%IndFS(1),NewMesh%FS%IndFS(3) ! New mesh
+         
             if(is_BS)then
             
                 ! Spline ordre at the new mesh point (may we could choose the closest point of the old mesh). Actually it is the same, %Ordre is given for all points of the FS. 
@@ -2211,7 +2222,7 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
                     
                     if (OldMesh%Tnoeud(ClosestPoints(j))%TVoisin(k,1).lt.0) Pvoisin(2,k) = - Pvoisin(2,k)
                 
-                    B(k,1) = Ecoulement%Phi(abs(OldMesh%Tnoeud(ClosestPoints(j))%TVoisin(k,1)))%perturbation
+                    B(k,1) = Ecoulement%Phi(abs(OldMesh%Tnoeud(ClosestPoints(j))%TVoisin(k,1)))%perturbation                    
                     B(k,2) = Ecoulement%Eta(abs(OldMesh%Tnoeud(ClosestPoints(j))%TVoisin(k,1)))%perturbation
                   
                 
@@ -2253,6 +2264,10 @@ subroutine Interpolation_FS(OldMesh,NewMesh,Ecoulement,t,LocalRemeshFS,ierror)
             end if
         
         end do
+        
+        call CPU_TIME(tc)
+        
+        write(1111,*) "Temps inter : ", tb-ta,tc-tb
         
     else ! No FS remeshing: necessity to update the size of Ecoulement.
         

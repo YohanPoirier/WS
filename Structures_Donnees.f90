@@ -8,11 +8,9 @@ implicit none
 type T_liste_ecoulements
     type(TEcoulement), dimension(:,:), allocatable :: G ! Liste d'ecoulements obtenus pas la methode grossiere
     type(TEcoulement), dimension(:), allocatable :: F ! Liste d'ecoulements obtenus pas la methode fine
-    type(TEcoulement), dimension(:,:), allocatable :: lambda ! Liste d'ecoulements correspondants aux differents lambda
 end type T_liste_ecoulements
 
 type T_liste_maillages
-    type(TMaillage), dimension(:,:), allocatable :: G ! Liste des maillages obtenus pas la methode grossiere
     type(TMaillage), dimension(:), allocatable :: F ! Liste des maillages obtenus pas la methode fine
 end type T_liste_maillages
 
@@ -20,7 +18,6 @@ end type T_liste_maillages
 type T_liste_bodies 
     type(TBody), dimension(:,:,:), allocatable :: G ! Liste de corps obtenus pas la methode grossiere
     type(TBody), dimension(:,:), allocatable :: F ! Liste de corps obtenus pas la methode fine
-    type(TBody), dimension(:,:,:), allocatable :: lambda ! Liste de corps correspondants aux differents lambda
 end type T_liste_bodies
 
 
@@ -48,6 +45,11 @@ type TNoeud
     logical                     :: control_point    ! Definition des points de controle.
     real(rp), dimension(3)      :: Velocity         ! Velocity of the node of the mesh.
     integer                     :: indmesh          ! indice of the corresponding node in mesh.
+    
+    !! Parareal
+    !real(rp), dimension(:,:), allocatable       :: inter_to_ref
+    !real(rp), dimension(:,:), allocatable       :: inter_from_ref
+    
 end type TNoeud
 
 !	type Facette
@@ -110,9 +112,12 @@ type TMaillage
 	integer                                     :: Nfsys    ! Nombre de facettes liées aux inconnues (juste pour visu).
 	integer                                     :: TypeM    ! Type of the mesh : 0 --> circular, 1 --> rectangular.
 	real(rp), dimension(5)                      :: DimTank  ! Dimensions of the tank ( Length/diameter, width/diameter, depth, damping dimension parameter, any other parameter). 
+    
+    ! Parareal
     real(rp), dimension(:,:), allocatable       :: Ainv1, Ainv2   ! Inverted matrices of the two BVP
     real(rp), dimension(:), allocatable         :: cond1, cond2   ! Conditionnement matrices  of the two BVP
     real(rp), dimension(:,:), allocatable       :: CD, CS   ! Influence coefficients
+
 
 end type TMaillage
 
